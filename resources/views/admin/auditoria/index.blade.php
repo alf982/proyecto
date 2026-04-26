@@ -71,7 +71,7 @@
     <div class="empty-state">
         <div class="empty-icon">🔍</div>
         <div class="empty-title">Sin registros de auditoría</div>
-        <div class="empty-desc">No hay eventos que coincidan con los filtros aplicados.</div>
+        <div class="empty-desc">No hay eventoss que coincidan con los filtros aplicados.</div>
     </div>
     @else
     <div class="table-wrap">
