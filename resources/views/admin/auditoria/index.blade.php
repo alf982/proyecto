@@ -11,7 +11,7 @@
 @section('content')
 <div class="page-header fade-up">
     <h1 class="page-title"><i class="fa-solid fa-shield-halved" style="color:var(--accent);margin-right:10px;"></i>Historial de Auditoría</h1>
-    <p class="page-subtitle">Registro de todos los cambios realizados en el sistema.</p>
+    <p class="page-subtitle">Registros de todos los cambios realizados en el sistema.</p>
 </div>
 
 {{-- Filtros --}}
