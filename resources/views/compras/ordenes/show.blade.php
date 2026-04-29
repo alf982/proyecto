@@ -40,7 +40,30 @@
                     </tbody>
                     <tfoot>
                         <tr><td colspan="4" style="text-align:right;padding:.5rem;color:var(--text-muted);">Subtotal:</td><td style="text-align:right;padding:.5rem;font-family:monospace">Bs. {{ number_format($orden->subtotal,2) }}</td><td></td></tr>
-                        <tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="4" style="text-align:right;padding:.75rem;color:var(--text-muted)">TOTAL:</td><td style="text-align:right;padding:.75rem;font-family:monospace;color:var(--primary)">Bs. {{ number_format($orden->total,2) }}</td><td></td></tr>
+                        <tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="4" style="text-align:right;padding:.75rem;color:var(--text-muted)">TOTAL BRUTO:</td><td style="text-align:right;padding:.75rem;font-family:monospace;color:var(--primary)">Bs. {{ number_format($orden->total,2) }}</td><td></td></tr>
+                        @if($orden->retenciones->count() > 0)
+                            @foreach($orden->retenciones as $ret)
+                            <tr style="font-size:.83rem">
+                                <td colspan="4" style="text-align:right;padding:.35rem .75rem;color:var(--text-muted);">
+                                    <i class="fa-solid fa-minus" style="font-size:9px;margin-right:3px;color:var(--accent-danger)"></i>
+                                    Retención: {{ $ret->retencion->nombre ?? '—' }}
+                                    @if($ret->porcentaje_aplicado)({{ number_format($ret->porcentaje_aplicado,2) }}%)@endif
+                                </td>
+                                <td style="text-align:right;padding:.35rem .75rem;font-family:monospace;color:var(--accent-danger)">– Bs. {{ number_format($ret->monto_retenido,2) }}</td>
+                                <td></td>
+                            </tr>
+                            @endforeach
+                            <tr style="font-weight:700;background:rgba(239,68,68,0.05)">
+                                <td colspan="4" style="text-align:right;padding:.5rem .75rem;color:var(--accent-danger)">TOTAL RETENCIONES:</td>
+                                <td style="text-align:right;padding:.5rem .75rem;font-family:monospace;color:var(--accent-danger)">– Bs. {{ number_format($orden->monto_retencion,2) }}</td>
+                                <td></td>
+                            </tr>
+                            <tr style="font-weight:800;background:rgba(34,211,166,0.07);border-top:2px solid rgba(34,211,166,0.3)">
+                                <td colspan="4" style="text-align:right;padding:.75rem;color:var(--accent-3);text-transform:uppercase;font-size:.85rem">NETO A PAGAR AL PROVEEDOR:</td>
+                                <td style="text-align:right;padding:.75rem;font-family:monospace;font-size:1.05rem;color:var(--accent-3)">Bs. {{ number_format($orden->monto_neto,2) }}</td>
+                                <td></td>
+                            </tr>
+                        @endif
                     </tfoot>
                 </table>
             </div>

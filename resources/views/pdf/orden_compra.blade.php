@@ -70,12 +70,26 @@
 <div class="totales clearfix">
   <div class="totales-inner">
     <div class="totales-row">
-      <span class="totales-label">Subtotal</span>
-      <span class="totales-val">Bs. {{ number_format($subtotal, 2) }}</span>
+      <span class="totales-label">Subtotal Bruto</span>
+      <span class="totales-val">Bs. {{ number_format($orden->total, 2) }}</span>
     </div>
+
+    @if($orden->retenciones->count() > 0)
+      @foreach($orden->retenciones as $ret)
+      <div class="totales-row" style="color:#c62828">
+        <span class="totales-label">Retención: {{ $ret->retencion->nombre ?? '—' }} @if($ret->porcentaje_aplicado)({{ number_format($ret->porcentaje_aplicado,2) }}%)@endif</span>
+        <span class="totales-val">– Bs. {{ number_format($ret->monto_retenido, 2) }}</span>
+      </div>
+      @endforeach
+      <div class="totales-row" style="color:#c62828; font-weight:bold">
+        <span class="totales-label">Total Retenciones</span>
+        <span class="totales-val">– Bs. {{ number_format($orden->monto_retencion, 2) }}</span>
+      </div>
+    @endif
+
     <div class="totales-row totales-total">
-      <span class="totales-label">TOTAL</span>
-      <span class="totales-val">Bs. {{ number_format($total, 2) }}</span>
+      <span class="totales-label">NETO A PAGAR</span>
+      <span class="totales-val">Bs. {{ number_format($orden->monto_neto > 0 ? $orden->monto_neto : $orden->total, 2) }}</span>
     </div>
   </div>
 </div>

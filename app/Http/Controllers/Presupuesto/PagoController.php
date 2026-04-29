@@ -19,10 +19,10 @@ class PagoController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('can:pagos.ver',      only: ['index', 'show']),
-            new Middleware('can:pagos.crear',    only: ['create', 'store']),
+            new Middleware('can:pagos.ver', only: ['index', 'show']),
+            new Middleware('can:pagos.crear', only: ['create', 'store']),
             new Middleware('can:pagos.procesar', only: ['procesar']),
-            new Middleware('can:pagos.anular',   only: ['anular']),
+            new Middleware('can:pagos.anular', only: ['anular']),
         ];
     }
 
@@ -31,12 +31,12 @@ class PagoController extends Controller implements HasMiddleware
     {
         $q = Pago::with(['causacion', 'ejercicioFiscal', 'unidadEjecutora'])
             ->when($request->ejercicio, fn($q, $v) => $q->where('ejercicio_fiscal_id', $v))
-            ->when($request->estado,   fn($q, $v) => $q->where('estado', $v))
-            ->when($request->tipo,     fn($q, $v) => $q->where('tipo_pago', $v))
-            ->when($request->search,   fn($q, $v) => $q->where(function ($q) use ($v) {
+            ->when($request->estado, fn($q, $v) => $q->where('estado', $v))
+            ->when($request->tipo, fn($q, $v) => $q->where('tipo_pago', $v))
+            ->when($request->search, fn($q, $v) => $q->where(function ($q) use ($v) {
                 $q->where('numero', 'like', "%$v%")
-                  ->orWhere('beneficiario', 'like', "%$v%")
-                  ->orWhere('numero_referencia', 'like', "%$v%");
+                    ->orWhere('beneficiario', 'like', "%$v%")
+                    ->orWhere('numero_referencia', 'like', "%$v%");
             }))
             ->orderByDesc('numero')
             ->paginate(20)->withQueryString();
@@ -75,18 +75,18 @@ class PagoController extends Controller implements HasMiddleware
     public function store(Request $request)
     {
         $request->validate([
-            'causacion_id'      => 'required|exists:causaciones,id',
-            'tipo_pago'         => 'required|in:cheque,transferencia,efectivo,otro',
+            'causacion_id' => 'required|exists:causaciones,id',
+            'tipo_pago' => 'required|in:cheque,transferencia,efectivo,otro',
             'numero_referencia' => 'nullable|string|max:60',
-            'banco'             => 'nullable|string|max:100',
-            'cuenta_bancaria'   => 'nullable|string|max:30',
-            'monto_pagado'      => 'required|numeric|min:0.01',
-            'monto_sin_iva'     => 'nullable|numeric|min:0',
-            'fecha_pago'        => 'required|date',
-            'concepto'          => 'required|string|max:500',
-            'observaciones'     => 'nullable|string',
-            'retenciones'       => 'nullable|array',
-            'retenciones.*'     => 'integer|exists:retenciones,id',
+            'banco' => 'nullable|string|max:100',
+            'cuenta_bancaria' => 'nullable|string|max:30',
+            'monto_pagado' => 'required|numeric|min:0.01',
+            'monto_sin_iva' => 'nullable|numeric|min:0',
+            'fecha_pago' => 'required|date',
+            'concepto' => 'required|string|max:500',
+            'observaciones' => 'nullable|string',
+            'retenciones' => 'nullable|array',
+            'retenciones.*' => 'integer|exists:retenciones,id',
         ]);
 
         $idsRetenciones = $request->input('retenciones', []);
@@ -99,31 +99,31 @@ class PagoController extends Controller implements HasMiddleware
 
         // Base neta para ISLR: viene del form (monto_sin_iva del compromiso/causación)
         // Si no se envía, usamos el total con IVA (comportamiento legado)
-        $montoTotal   = (float) $request->monto_pagado;
-        $montoSinIva  = $request->filled('monto_sin_iva') ? (float) $request->monto_sin_iva : null;
+        $montoTotal = (float) $request->monto_pagado;
+        $montoSinIva = $request->filled('monto_sin_iva') ? (float) $request->monto_sin_iva : null;
 
         $totalRetenciones = $this->calcularTotalRetenciones($idsRetenciones, $montoTotal, $montoSinIva);
-        $montoNeto        = round($montoTotal - $totalRetenciones, 2);
+        $montoNeto = round($montoTotal - $totalRetenciones, 2);
 
-        DB::transaction(function () use ($request, $causacion, $idsRetenciones, $totalRetenciones, $montoTotal, $montoSinIva) {
+        DB::transaction(function () use ($request, $causacion, $idsRetenciones, $totalRetenciones, $montoTotal, $montoSinIva, $montoNeto) {
             // 1. Crear el pago
             $pago = Pago::create([
-                'numero'              => Pago::generarNumero(now()->year),
-                'causacion_id'        => $causacion->id,
+                'numero' => Pago::generarNumero(now()->year),
+                'causacion_id' => $causacion->id,
                 'ejercicio_fiscal_id' => $causacion->ejercicio_fiscal_id,
                 'unidad_ejecutora_id' => $causacion->unidad_ejecutora_id,
-                'beneficiario'        => $causacion->beneficiario,
-                'rif_beneficiario'    => $causacion->rif_beneficiario,
-                'tipo_pago'           => $request->tipo_pago,
-                'numero_referencia'   => $request->numero_referencia,
-                'banco'               => $request->banco,
-                'cuenta_bancaria'     => $request->cuenta_bancaria,
-                'monto_pagado'        => $montoTotal,
-                'fecha_pago'          => $request->fecha_pago,
-                'concepto'            => $request->concepto,
-                'estado'              => 'procesado',
-                'observaciones'       => $request->observaciones,
-                'created_by'          => auth()->id(),
+                'beneficiario' => $causacion->beneficiario,
+                'rif_beneficiario' => $causacion->rif_beneficiario,
+                'tipo_pago' => $request->tipo_pago,
+                'numero_referencia' => $request->numero_referencia,
+                'banco' => $request->banco,
+                'cuenta_bancaria' => $request->cuenta_bancaria,
+                'monto_pagado' => $montoNeto,
+                'fecha_pago' => $request->fecha_pago,
+                'concepto' => $request->concepto,
+                'estado' => 'procesado',
+                'observaciones' => $request->observaciones,
+                'created_by' => auth()->id(),
             ]);
 
             // 2. Guardar retenciones con las dos bases correctas
@@ -134,8 +134,8 @@ class PagoController extends Controller implements HasMiddleware
 
             // 3. Marcar la causación como pagada
             $causacion->update([
-                'estado'          => 'pagada',
-                'fecha_pago'      => $request->fecha_pago,
+                'estado' => 'pagada',
+                'fecha_pago' => $request->fecha_pago,
                 'monto_retencion' => $totalRetenciones,
             ]);
         });
@@ -147,7 +147,7 @@ class PagoController extends Controller implements HasMiddleware
     // ── DETALLE ───────────────────────────────────────────────────────
     public function show(Pago $pago)
     {
-        $pago->load(['causacion.partida', 'causacion.unidadEjecutora', 'ejercicioFiscal', 'unidadEjecutora', 'creadoPor']);
+        $pago->load(['causacion.partida', 'causacion.unidadEjecutora', 'ejercicioFiscal', 'unidadEjecutora', 'creadoPor', 'retenciones.retencion']);
         return view('presupuesto.pagos.show', compact('pago'));
     }
 
@@ -160,18 +160,18 @@ class PagoController extends Controller implements HasMiddleware
 
         $request->validate([
             'numero_referencia' => 'nullable|string|max:60',
-            'banco'             => 'nullable|string|max:100',
-            'cuenta_bancaria'   => 'nullable|string|max:30',
-            'fecha_pago'        => 'required|date',
+            'banco' => 'nullable|string|max:100',
+            'cuenta_bancaria' => 'nullable|string|max:30',
+            'fecha_pago' => 'required|date',
         ]);
 
         DB::transaction(function () use ($request, $pago) {
             $pago->update([
-                'estado'            => 'procesado',
+                'estado' => 'procesado',
                 'numero_referencia' => $request->numero_referencia,
-                'banco'             => $request->banco,
-                'cuenta_bancaria'   => $request->cuenta_bancaria,
-                'fecha_pago'        => $request->fecha_pago,
+                'banco' => $request->banco,
+                'cuenta_bancaria' => $request->cuenta_bancaria,
+                'fecha_pago' => $request->fecha_pago,
             ]);
 
             $causacion = Causacion::find($pago->causacion_id);
@@ -181,11 +181,11 @@ class PagoController extends Controller implements HasMiddleware
             }
             if ($pago->orden_pago_id) {
                 OrdenPago::where('id', $pago->orden_pago_id)->update([
-                    'estado'              => 'pagada',
-                    'numero_referencia'   => $request->numero_referencia,
-                    'banco'               => $request->banco,
+                    'estado' => 'pagada',
+                    'numero_referencia' => $request->numero_referencia,
+                    'banco' => $request->banco,
                     'cuenta_bancaria_num' => $request->cuenta_bancaria,
-                    'fecha_pago'          => $request->fecha_pago,
+                    'fecha_pago' => $request->fecha_pago,
                 ]);
             }
         });

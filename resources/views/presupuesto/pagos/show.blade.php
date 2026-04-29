@@ -15,6 +15,9 @@
         <a href="{{ route('presupuesto.pagos.index') }}" class="btn btn-outline btn-sm">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
+        <a href="{{ route('pdf.pago', $pago) }}" target="_blank" class="btn btn-outline btn-sm" style="color:var(--accent-danger);border-color:var(--accent-danger);">
+            <i class="fa-regular fa-file-pdf"></i> Reporte de Pago
+        </a>
         @if($pago->esPendiente())
         <button type="button" class="btn btn-primary btn-sm"
             onclick="document.getElementById('modal-procesar').style.display='flex'">
@@ -121,9 +124,29 @@
             <div style="font-family:monospace;">{{ $pago->cuenta_bancaria }}</div>
         </div>
         @endif
-        <div style="grid-column:span 2;text-align:center;padding:20px;background:rgba(34,211,166,0.06);border-radius:12px;border:1px solid rgba(34,211,166,0.15);">
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;">Monto Pagado</div>
-            <div style="font-size:30px;font-weight:800;color:var(--accent-3);font-family:monospace;">Bs. {{ number_format($pago->monto_pagado,2) }}</div>
+        <div style="grid-column:span 2;padding:20px;background:rgba(34,211,166,0.06);border-radius:12px;border:1px solid rgba(34,211,166,0.15);display:flex;flex-direction:column;align-items:center;gap:12px;">
+            @php
+                $totalRetenido = $pago->retenciones->sum('monto_retenido');
+                $montoBruto = (float)$pago->monto_pagado + (float)$totalRetenido;
+            @endphp
+            
+            @if($totalRetenido > 0)
+            <div style="display:flex;gap:40px;width:100%;justify-content:center;border-bottom:1px dashed rgba(34,211,166,0.3);padding-bottom:12px;margin-bottom:4px;">
+                <div style="text-align:center;">
+                    <div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;">Monto Bruto</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text-main);font-family:monospace;">Bs. {{ number_format($montoBruto, 2) }}</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;">Total Retenciones</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--accent-danger);font-family:monospace;">- Bs. {{ number_format($totalRetenido, 2) }}</div>
+                </div>
+            </div>
+            @endif
+
+            <div style="text-align:center;">
+                <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;">{{ $totalRetenido > 0 ? 'Monto Neto Pagado' : 'Monto Pagado' }}</div>
+                <div style="font-size:30px;font-weight:800;color:var(--accent-3);font-family:monospace;">Bs. {{ number_format($pago->monto_pagado, 2) }}</div>
+            </div>
         </div>
         @if($pago->concepto)
         <div style="grid-column:span 2;">
@@ -139,6 +162,53 @@
         @endif
     </div>
 </div>
+
+@if($pago->retenciones->count() > 0)
+<div class="card fade-up" style="margin-top:18px;animation-delay:.08s;">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fa-solid fa-scissors" style="color:var(--accent-warn);margin-right:6px;"></i>Retenciones Aplicadas
+        </div>
+    </div>
+    <div class="card-body" style="padding:0;">
+        <table class="table" style="margin:0;font-size:13px;">
+            <thead style="background:var(--bg-card-alt);">
+                <tr>
+                    <th style="padding:10px 16px;text-align:left;">Retención</th>
+                    <th style="padding:10px 16px;text-align:center;">Base (Bs.)</th>
+                    <th style="padding:10px 16px;text-align:center;">%</th>
+                    <th style="padding:10px 16px;text-align:right;">Monto (Bs.)</th>
+                    <th style="padding:10px 16px;width:60px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($pago->retenciones as $ra)
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px 16px;">
+                        <div style="font-weight:600;">{{ $ra->retencion->nombre }}</div>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">{{ number_format($ra->monto_base, 2) }}</td>
+                    <td style="padding:12px 16px;text-align:center;">{{ $ra->porcentaje_aplicado ? number_format($ra->porcentaje_aplicado, 2).'%' : '—' }}</td>
+                    <td style="padding:12px 16px;font-weight:600;color:var(--accent-danger);text-align:right;">{{ number_format($ra->monto_retenido, 2) }}</td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        <a href="{{ route('pdf.retencion-aplicada', $ra) }}" target="_blank" class="btn btn-outline btn-sm" title="Comprobante PDF" style="padding:4px 8px;">
+                            <i class="fa-regular fa-file-pdf" style="color:var(--accent-danger);font-size:14px;"></i>
+                        </a>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr style="background:rgba(247,95,95,0.05);">
+                    <td colspan="3" style="text-align:right;padding:12px 16px;font-weight:700;">TOTAL RETENIDO:</td>
+                    <td style="text-align:right;padding:12px 16px;font-weight:800;color:var(--accent-danger);">{{ number_format($pago->retenciones->sum('monto_retenido'), 2) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+@endif
 
 </div>
 

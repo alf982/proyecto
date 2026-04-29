@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Causacion;
+use App\Models\Pago;
 use App\Models\OrdenPago;
 use App\Models\Nomina;
 use App\Models\Ingreso;
@@ -26,6 +27,32 @@ class PdfController extends Controller
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("causacion-{$causacion->numero}.pdf");
+    }
+
+    // ── PAGO ──────────────────────────────────────────────────────────────────
+
+    public function pago(Pago $pago)
+    {
+        $this->authorize('pagos.ver');
+        $pago->load(['causacion.partida', 'causacion.proyecto', 'ejercicioFiscal', 'unidadEjecutora', 'creadoPor', 'retenciones.retencion']);
+
+        $pdf = Pdf::loadView('pdf.pago', compact('pago'))
+            ->setPaper('letter', 'portrait');
+
+        return $pdf->stream("pago-{$pago->numero}.pdf");
+    }
+
+    // ── COMPROBANTE DE RETENCIÓN ──────────────────────────────────────────────
+
+    public function retencionAplicada(\App\Models\RetencionAplicada $retencionAplicada)
+    {
+        $this->authorize('pagos.ver');
+        $retencionAplicada->load(['retencion', 'retencionable']);
+
+        $pdf = Pdf::loadView('pdf.comprobante_retencion', compact('retencionAplicada'))
+            ->setPaper('letter', 'portrait');
+
+        return $pdf->stream("comprobante-retencion-{$retencionAplicada->id}.pdf");
     }
 
     // ── ORDEN DE PAGO ─────────────────────────────────────────────────────────

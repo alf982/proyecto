@@ -51,7 +51,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
     // ── CREAR ─────────────────────────────────────────────────────────
     public function create(Request $request)
     {
-        $solicitudes   = SolicitudCompra::where('estado', 'aprobada')->orderByDesc('id')->get();
+        $solicitudes   = SolicitudCompra::with('detalles.articulo')->where('estado', 'aprobada')->orderByDesc('id')->get();
         $beneficiarios = Beneficiario::activos()->orderBy('razon_social')->get();
         $articulos     = Articulo::activos()->orderBy('nombre')->get();
         $ejercicio     = session('ejercicio_id')
@@ -105,9 +105,14 @@ class OrdenCompraController extends Controller implements HasMiddleware
             }
         }
 
-        DB::transaction(function () use ($request, $ejercicio, $idsRetenciones) {
-            $subtotal  = collect($request->lineas)->sum(fn($l) => ($l['cantidad'] ?? 0) * ($l['precio_unitario'] ?? 0));
-            $total     = round($subtotal, 2);
+        $subtotalPrevio = collect($request->lineas)->sum(fn($l) => ($l['cantidad'] ?? 0) * ($l['precio_unitario'] ?? 0));
+        $totalBruto     = round($subtotalPrevio, 2);
+        $totalRetencion = $this->calcularTotalRetenciones($idsRetenciones, $totalBruto);
+        $montoNeto      = round($totalBruto - $totalRetencion, 2);
+
+        DB::transaction(function () use ($request, $ejercicio, $idsRetenciones, $totalBruto, $totalRetencion, $montoNeto) {
+            $subtotal = $totalBruto;
+            $total    = $totalBruto;
 
             $oc = OrdenCompra::create([
                 'numero'                   => OrdenCompra::generarNumero(now()->year),
@@ -123,7 +128,9 @@ class OrdenCompraController extends Controller implements HasMiddleware
                 'subtotal'                 => $subtotal,
                 'iva_porcentaje'           => 0,
                 'iva_monto'                => 0,
-                'total'                    => $total,
+                'total'                    => $totalBruto,
+                'monto_retencion'          => $totalRetencion,
+                'monto_neto'               => $montoNeto,
                 'estado'                   => 'emitida',
                 'modalidad'                => $request->modalidad ?? 'compra_directa',
                 'numero_contrato'          => $request->numero_contrato,
@@ -173,7 +180,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
             }
 
             // Guardar retenciones en tabla polimórfica
-            $this->guardarRetenciones($oc, $idsRetenciones, $total);
+            $this->guardarRetenciones($oc, $idsRetenciones, $totalBruto);
         });
 
         return redirect()->route('compras.ordenes.index')
@@ -183,7 +190,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
     // ── DETALLE ───────────────────────────────────────────────────────
     public function show(OrdenCompra $orden)
     {
-        $orden->load(['solicitud', 'beneficiario', 'partida', 'detalles.articulo', 'recepciones', 'creadoPor']);
+        $orden->load(['solicitud', 'beneficiario', 'partida', 'detalles.articulo', 'recepciones', 'creadoPor', 'retenciones.retencion']);
         return view('compras.ordenes.show', compact('orden'));
     }
 

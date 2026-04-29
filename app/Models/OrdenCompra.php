@@ -11,12 +11,13 @@ class OrdenCompra extends Model {
         'numero','solicitud_compra_id','ejercicio_fiscal_id','partida_presupuestaria_id',
         'beneficiario_id','proveedor_nombre','proveedor_rif','concepto',
         'fecha_emision','fecha_entrega_estimada',
-        'subtotal','iva_porcentaje','iva_monto','total','estado','modalidad',
-        'numero_contrato','motivo_anulacion','condiciones','creado_por',
+        'subtotal','iva_porcentaje','iva_monto','total','monto_retencion','monto_neto',
+        'estado','modalidad','numero_contrato','motivo_anulacion','condiciones','creado_por',
     ];
     protected $casts = [
         'fecha_emision'=>'date','fecha_entrega_estimada'=>'date',
         'subtotal'=>'decimal:2','iva_monto'=>'decimal:2','total'=>'decimal:2',
+        'monto_retencion'=>'decimal:2','monto_neto'=>'decimal:2',
     ];
 
     public function solicitud()      { return $this->belongsTo(SolicitudCompra::class, 'solicitud_compra_id'); }

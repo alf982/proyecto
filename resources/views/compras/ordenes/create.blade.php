@@ -1,5 +1,21 @@
 @extends('layouts.app')
 @section('title','Nueva Orden de Compra')
+<style>
+    .dropdown-ajax-results {
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+        background: #fff; border: 1px solid var(--border); border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; display: none;
+        max-height: 250px; overflow-y: auto;
+    }
+    .result-item {
+        padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+        transition: background .2s;
+    }
+    .result-item:hover, .result-item.active { background: var(--bg-hover); border-left: 3px solid var(--accent); }
+    .result-item:last-child { border-bottom: none; }
+    .result-item .rif { font-family: monospace; font-weight: 700; color: var(--primary); font-size: 12px; }
+    .result-item .name { font-size: 13px; color: var(--text-main); display: block; }
+</style>
 @section('content')
 <div class="page-header">
     <div><h1 class="page-title">Nueva Orden de Compra</h1><p class="page-subtitle">Documento formal de adquisición</p></div>
@@ -14,9 +30,15 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
                 <div class="form-group">
                     <label class="form-label">Solicitud Vinculada (opcional)</label>
-                    <select name="solicitud_compra_id" class="form-control">
+                    <select name="solicitud_compra_id" class="form-control" onchange="cargarDetallesSolicitud(this)">
                         <option value="">Ninguna</option>
-                        @foreach($solicitudes as $sol)<option value="{{ $sol->id }}" {{ old('solicitud_compra_id')==$sol->id?'selected':'' }}>{{ $sol->numero }} — {{ Str::limit($sol->motivo,40) }}</option>@endforeach
+                        @foreach($solicitudes as $sol)
+                        <option value="{{ $sol->id }}" 
+                                data-detalles="{{ json_encode($sol->detalles) }}"
+                                {{ old('solicitud_compra_id')==$sol->id?'selected':'' }}>
+                            {{ $sol->numero }} — {{ Str::limit($sol->motivo,40) }}
+                        </option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="form-group">
@@ -79,24 +101,19 @@
             <hr style="border-color:var(--border)">
             <h4 style="font-size:.85rem;color:var(--text-muted);text-transform:uppercase">Proveedor</h4>
 
-            {{-- Selector del catálogo --}}
             <div class="form-group">
                 <label class="form-label">
-                    Buscar en catálogo de beneficiarios
-                    <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px;">(opcional — auto-rellena los datos)</span>
+                    Seleccionar del catálogo de beneficiarios
+                    <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px;">(Auto-rellena los datos inferiores)</span>
                 </label>
-                <select id="sel-beneficiario" name="beneficiario_id" class="form-control" onchange="autoRellenarProveedor(this)">
-                    <option value="">— Ingresar manualmente —</option>
+                <select id="sel-beneficiario-lista" name="beneficiario_id" class="form-control" onchange="autoRellenarDesdeLista(this)">
+                    <option value="">— Seleccionar para auto-rellenar —</option>
                     @foreach($beneficiarios as $ben)
                     <option value="{{ $ben->id }}"
                         data-nombre="{{ $ben->razon_social }}"
                         data-rif="{{ $ben->rif }}"
-                        data-banco="{{ $ben->banco_nombre }}"
-                        data-cuenta="{{ $ben->banco_cuenta }}"
-                        data-tipo-cuenta="{{ $ben->banco_tipo_cuenta }}"
                         {{ old('beneficiario_id') == $ben->id ? 'selected' : '' }}>
                         [{{ $ben->rif }}] {{ $ben->razon_social }}
-                        @if($ben->tipo) · {{ $ben->getTipoLabel() }}@endif
                     </option>
                     @endforeach
                 </select>
@@ -111,8 +128,13 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">RIF</label>
-                    <input type="text" id="inp-proveedor-rif" name="proveedor_rif" class="form-control"
-                           value="{{ old('proveedor_rif') }}" placeholder="J-12345678-9">
+                    <div style="display:flex;gap:5px">
+                        <input type="text" id="inp-proveedor-rif" name="proveedor_rif" class="form-control"
+                               value="{{ old('proveedor_rif') }}" placeholder="J-12345678-9">
+                        <button type="button" class="btn btn-outline" onclick="buscarPorRifManual()" title="Buscar y autorellenar">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="form-group">
@@ -145,7 +167,12 @@
                                 <select name="lineas[0][articulo_id]" class="form-control art-sel" style="font-size:.78rem" onchange="autoDescripcion(this,0)">
                                     <option value="">— Libre —</option>
                                     @foreach($articulos as $art)
-                                    <option value="{{ $art->id }}" data-nombre="{{ $art->nombre }}" data-unidad="{{ $art->unidad_medida }}">{{ $art->codigo }} — {{ Str::limit($art->nombre,28) }}</option>
+                                    <option value="{{ $art->id }}" 
+                                            data-nombre="{{ $art->nombre }}" 
+                                            data-unidad="{{ $art->unidad_medida }}"
+                                            data-precio="{{ $art->precio_referencia }}">
+                                        {{ $art->codigo }} — {{ Str::limit($art->nombre,28) }}
+                                    </option>
                                     @endforeach
                                 </select>
                             </td>
@@ -159,7 +186,7 @@
                                 <input type="number" name="lineas[0][cantidad]" class="form-control cant" style="font-size:.78rem;text-align:right" value="1" step="0.01" min="0.01" required onchange="calcular()">
                             </td>
                             <td style="padding:.4rem .3rem">
-                                <input type="number" name="lineas[0][precio_unitario]" class="form-control punit" style="font-size:.78rem;text-align:right" value="0" step="0.01" min="0" required onchange="calcular()" placeholder="0.00">
+                                <input type="number" name="lineas[0][precio_unitario]" id="pu-0" class="form-control punit" style="font-size:.78rem;text-align:right" value="0" step="0.01" min="0" required onchange="calcular()" placeholder="0.00">
                             </td>
                             <td style="padding:.4rem .3rem;text-align:right;font-family:monospace;font-size:.82rem;white-space:nowrap" class="sub-td">0.00</td>
                             <td style="padding:.3rem;text-align:center"></td>
@@ -233,19 +260,125 @@
 <script>
 let c = 1;
 let saldoPartida = 0;
-const artOpts = `<option value="">— Libre —</option>@foreach($articulos as $art)<option value="{{ $art->id }}" data-nombre="{{ addslashes($art->nombre) }}" data-unidad="{{ $art->unidad_medida }}">{{ $art->codigo }} — {{ addslashes(Str::limit($art->nombre,28)) }}</option>@endforeach`;
+const artOpts = `<option value="">— Libre —</option>@foreach($articulos as $art)<option value="{{ $art->id }}" data-nombre="{{ addslashes($art->nombre) }}" data-unidad="{{ $art->unidad_medida }}" data-precio="{{ $art->precio_referencia }}">{{ $art->codigo }} — {{ addslashes(Str::limit($art->nombre,28)) }}</option>@endforeach`;
 
-// ── AUTO-RELLENO PROVEEDOR ─────────────────────────────────────────
-function autoRellenarProveedor(sel) {
+// ── BÚSQUEDA AJAX PROVEEDOR ────────────────────────────────────────
+const searchInp = document.getElementById('search-beneficiario');
+const resultsDiv = document.getElementById('results-beneficiario');
+const valIdInp = document.getElementById('val-beneficiario-id');
+let timeout = null;
+
+// ── AUTO-RELLENO DESDE LISTA ───────────────────────────────────────
+function autoRellenarDesdeLista(sel) {
     const opt = sel.options[sel.selectedIndex];
-    if (!sel.value) {
-        // Limpiar campos
-        document.getElementById('inp-proveedor-nombre').value = '';
-        document.getElementById('inp-proveedor-rif').value    = '';
-        return;
-    }
+    if (!sel.value) return;
+    
     document.getElementById('inp-proveedor-nombre').value = opt.dataset.nombre || '';
     document.getElementById('inp-proveedor-rif').value    = opt.dataset.rif    || '';
+    
+    // Feedback visual
+    sel.style.borderColor = 'var(--accent-3)';
+    setTimeout(() => sel.style.borderColor = '', 1000);
+}
+
+// ── AUTO-RELLENO AL ESCRIBIR RIF MANUAMENTE ────────────────────────
+const inpRif = document.getElementById('inp-proveedor-rif');
+
+inpRif.addEventListener('blur', function() {
+    buscarPorRifManual();
+});
+
+function buscarPorRifManual() {
+    const rif = inpRif.value.trim();
+    if (rif.length < 5) return;
+
+    fetch(`{{ route('admin.beneficiarios.search-ajax') }}?q=${rif}`)
+        .then(res => res.json())
+        .then(data => {
+            const exacto = data.find(b => b.rif.toLowerCase() === rif.toLowerCase());
+            if (exacto) {
+                document.getElementById('inp-proveedor-nombre').value = exacto.razon_social;
+                document.getElementById('inp-proveedor-rif').value = exacto.rif;
+                
+                // Intentar seleccionar en la lista también si existe
+                const sel = document.getElementById('sel-beneficiario-lista');
+                if (sel) sel.value = exacto.id;
+
+                inpRif.classList.add('is-valid');
+                setTimeout(() => inpRif.classList.remove('is-valid'), 2000);
+            }
+        });
+}
+
+// Cerrar resultados al hacer click fuera
+document.addEventListener('click', (e) => {
+    if (e.target !== searchInp) resultsDiv.style.display = 'none';
+});
+
+// ── AUTO-RELLENO PROVEEDOR (Legacy compatibility or remove) ────────
+function autoRellenarProveedor(sel) {
+    // Ya no se usa por el AJAX, pero lo mantenemos por si acaso
+}
+
+// ── AUTO-RELLENO DESDE SOLICITUD ────────────────────────────────────
+function cargarDetallesSolicitud(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    if (!sel.value || !opt.dataset.detalles) return;
+    
+    const detalles = JSON.parse(opt.dataset.detalles);
+    if (!detalles || detalles.length === 0) return;
+
+    if (confirm('¿Cargar los artículos de esta solicitud? Se borrarán los renglones actuales.')) {
+        const body = document.getElementById('lineas-body');
+        body.innerHTML = ''; // Limpiar
+        c = 0; // Reiniciar contador de líneas para que empiecen desde 0
+
+        detalles.forEach(det => {
+            const idx = c++;
+            const tr  = document.createElement('tr');
+            tr.id = 'linea-' + idx;
+            tr.style.borderBottom = '1px solid var(--border)';
+            
+            const artId = det.articulo_id || '';
+            const artNom = det.articulo ? det.articulo.nombre : '';
+            const artUM = det.articulo ? det.articulo.unidad_medida : (det.unidad_medida || 'unidad');
+            const artPU = det.articulo ? det.articulo.precio_referencia : 0;
+            const cant = det.cantidad || 1;
+            const desc = det.descripcion || artNom;
+
+            tr.innerHTML = `
+                <td style="padding:.4rem .3rem">
+                    <select name="lineas[${idx}][articulo_id]" class="form-control art-sel" style="font-size:.78rem" onchange="autoDescripcionDyn(this,${idx})">
+                        ${artOpts}
+                    </select>
+                </td>
+                <td style="padding:.4rem .3rem">
+                    <input type="text" name="lineas[${idx}][descripcion]" id="desc-${idx}" class="form-control" style="font-size:.78rem" required value="${desc}">
+                </td>
+                <td style="padding:.4rem .3rem">
+                    <input type="text" name="lineas[${idx}][unidad_medida]" id="um-${idx}" class="form-control" style="font-size:.78rem;text-align:center" value="${artUM}">
+                </td>
+                <td style="padding:.4rem .3rem">
+                    <input type="number" name="lineas[${idx}][cantidad]" class="form-control cant" style="font-size:.78rem;text-align:right" value="${cant}" step="0.01" min="0.01" required onchange="calcular()">
+                </td>
+                <td style="padding:.4rem .3rem">
+                    <input type="number" name="lineas[${idx}][precio_unitario]" id="pu-${idx}" class="form-control punit" style="font-size:.78rem;text-align:right" value="${artPU}" step="0.01" min="0" required onchange="calcular()">
+                </td>
+                <td style="padding:.4rem .3rem;text-align:right;font-family:monospace;font-size:.82rem;white-space:nowrap" class="sub-td">0.00</td>
+                <td style="padding:.3rem;text-align:center">
+                    <button type="button" onclick="this.closest('tr').remove();calcular()" class="btn-icon btn-icon-danger" title="Quitar">✕</button>
+                </td>`;
+            
+            body.appendChild(tr);
+            
+            // Seleccionar el artículo en el dropdown si existe
+            if (artId) {
+                const select = tr.querySelector('.art-sel');
+                select.value = artId;
+            }
+        });
+        calcular();
+    }
 }
 
 function mostrarSaldo(sel) {
@@ -319,9 +452,12 @@ function autoDescripcion(sel, idx) {
     const opt = sel.options[sel.selectedIndex];
     if (!sel.value) return;
     const descEl = document.getElementById('desc-' + idx);
-    const umEl   = document.getElementById('um-'   + idx);
-    if (descEl && !descEl.value) descEl.value = opt.dataset.nombre || '';
-    if (umEl)                    umEl.value   = opt.dataset.unidad  || 'unidad';
+    const umEl   = document.getElementById('um-' + idx);
+    const puEl   = document.getElementById('pu-' + idx);
+    if (descEl) descEl.value = opt.dataset.nombre || '';
+    if (umEl)   umEl.value   = opt.dataset.unidad || 'unidad';
+    if (puEl)   puEl.value   = opt.dataset.precio || 0;
+    calcular();
 }
 
 function agregarLinea() {
@@ -345,7 +481,7 @@ function agregarLinea() {
             <input type="number" name="lineas[${idx}][cantidad]" class="form-control cant" style="font-size:.78rem;text-align:right" value="1" step="0.01" min="0.01" required onchange="calcular()">
         </td>
         <td style="padding:.4rem .3rem">
-            <input type="number" name="lineas[${idx}][precio_unitario]" class="form-control punit" style="font-size:.78rem;text-align:right" value="0" step="0.01" min="0" required onchange="calcular()" placeholder="0.00">
+            <input type="number" name="lineas[${idx}][precio_unitario]" id="pu-${idx}" class="form-control punit" style="font-size:.78rem;text-align:right" value="0" step="0.01" min="0" required onchange="calcular()" placeholder="0.00">
         </td>
         <td style="padding:.4rem .3rem;text-align:right;font-family:monospace;font-size:.82rem;white-space:nowrap" class="sub-td">0.00</td>
         <td style="padding:.3rem;text-align:center">
@@ -358,9 +494,12 @@ function autoDescripcionDyn(sel, idx) {
     const opt = sel.options[sel.selectedIndex];
     if (!sel.value) return;
     const descEl = document.getElementById('desc-' + idx);
-    const umEl   = document.getElementById('um-'   + idx);
-    if (descEl && !descEl.value) descEl.value = opt.dataset.nombre || '';
-    if (umEl)                    umEl.value   = opt.dataset.unidad  || 'unidad';
+    const umEl   = document.getElementById('um-' + idx);
+    const puEl   = document.getElementById('pu-' + idx);
+    if (descEl) descEl.value = opt.dataset.nombre || '';
+    if (umEl)   umEl.value   = opt.dataset.unidad || 'unidad';
+    if (puEl)   puEl.value   = opt.dataset.precio || 0;
+    calcular();
 }
 
 // Hook: actualizar resumen cuando cambien las retenciones

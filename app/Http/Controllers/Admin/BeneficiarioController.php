@@ -12,7 +12,7 @@ class BeneficiarioController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('can:beneficiarios.ver', only: ['index', 'show']),
+            new Middleware('can:beneficiarios.ver', only: ['index', 'show', 'searchAjax']),
             new Middleware('can:beneficiarios.crear', only: ['create', 'store']),
             new Middleware('can:beneficiarios.editar', only: ['edit', 'update', 'toggleActivo']),
             new Middleware('can:usuarios.eliminar', only: ['destroy']),
@@ -104,5 +104,26 @@ class BeneficiarioController extends Controller implements HasMiddleware
         $beneficiario->delete();
         return redirect()->route('admin.beneficiarios.index')
             ->with('success', 'Beneficiario eliminado.');
+    }
+
+    public function searchAjax(Request $request)
+    {
+        $term = $request->get('q');
+        
+        $query = Beneficiario::activos();
+
+        if (!empty($term)) {
+            $query->where(function($q) use ($term) {
+                $q->where('rif', 'like', "%$term%")
+                  ->orWhere('razon_social', 'like', "%$term%")
+                  ->orWhere('nombre_comercial', 'like', "%$term%");
+            });
+        }
+
+        $results = $query->orderBy('razon_social')
+            ->limit(20)
+            ->get(['id', 'rif', 'razon_social', 'nombre_comercial', 'tipo', 'banco_nombre', 'banco_cuenta']);
+
+        return response()->json($results);
     }
 }

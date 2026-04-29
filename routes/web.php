@@ -62,6 +62,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Módulo 3 — Beneficiarios (Ordenamiento de Pago)
         Route::resource('beneficiarios', BeneficiarioController::class)
             ->parameters(['beneficiarios' => 'beneficiario']);
+        Route::get('beneficiarios/search-ajax', [BeneficiarioController::class, 'searchAjax'])
+            ->name('beneficiarios.search-ajax');
         Route::post('beneficiarios/{beneficiario}/toggle', [BeneficiarioController::class, 'toggleActivo'])
             ->name('beneficiarios.toggle');
 
@@ -250,6 +252,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('pdf')->name('pdf.')->group(function () {
         // Presupuesto
         Route::get('causacion/{causacion}',         [PdfController::class, 'causacion'])->name('causacion');
+        Route::get('pago/{pago}',                   [PdfController::class, 'pago'])->name('pago');
+        Route::get('retencion-aplicada/{retencionAplicada}', [PdfController::class, 'retencionAplicada'])->name('retencion-aplicada');
         // Tesorería
         Route::get('orden-pago/{orden}',            [PdfController::class, 'ordenPago'])->name('orden-pago');
         // Nómina

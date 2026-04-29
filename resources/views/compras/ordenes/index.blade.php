@@ -32,7 +32,7 @@
 <div class="card">
     <div class="table-responsive">
         <table class="table">
-            <thead><tr><th>N°</th><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th style="text-align:right">Total</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>N°</th><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th style="text-align:right">Total Bruto</th><th style="text-align:right">Retenciones</th><th style="text-align:right">Monto Neto</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody>
                 @forelse($q as $oc)
                 <tr class="{{ $oc->estado=='anulada'?'opacity:0.5':'' }}">
@@ -40,7 +40,9 @@
                     <td style="font-size:.85rem">{{ $oc->fecha_emision->format('d/m/Y') }}</td>
                     <td style="font-size:.85rem">{{ $oc->proveedor_nombre ?? $oc->beneficiario?->nombre ?? '—' }}</td>
                     <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.85rem">{{ $oc->concepto }}</td>
-                    <td style="text-align:right;font-family:monospace;font-weight:600">Bs. {{ number_format($oc->total,2) }}</td>
+                    <td style="text-align:right;font-family:monospace;font-size:.85rem">Bs. {{ number_format($oc->total,2) }}</td>
+                    <td style="text-align:right;font-family:monospace;font-size:.85rem;color:var(--accent-danger)">{{ $oc->monto_retencion > 0 ? 'Bs. '.number_format($oc->monto_retencion,2) : '—' }}</td>
+                    <td style="text-align:right;font-family:monospace;font-weight:700;color:var(--accent-3)">Bs. {{ number_format($oc->monto_neto,2) }}</td>
                     <td><span class="badge {{ $oc->getEstadoBadge() }}">{{ $oc->getEstadoLabel() }}</span></td>
                     <td><a href="{{ route('compras.ordenes.show',$oc) }}" class="btn-icon" title="Ver">👁</a></td>
                 </tr>
