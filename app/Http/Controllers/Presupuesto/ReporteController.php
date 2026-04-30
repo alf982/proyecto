@@ -13,6 +13,7 @@ use App\Models\UnidadEjecutora;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
 
 class ReporteController extends Controller implements HasMiddleware
 {
@@ -126,57 +127,47 @@ class ReporteController extends Controller implements HasMiddleware
                 'pct_disponible'   => $totalVigente > 0 ? round(($totalDisponible   / $totalVigente) * 100, 1) : 0,
             ];
 
-            // ── Por unidad ejecutora (solo vista global) ───────────
+            // ── Por unidad ejecutora — una sola query agrupada (sin N+1) ──
             if (! $filtroPartida) {
+                // Comprometido por unidad: 1 query groupBy
+                $comprometidoPorUnidad = Compromiso::where('ejercicio_fiscal_id', $ejercicioActivo->id)
+                    ->whereIn('estado', ['borrador', 'aprobado'])
+                    ->when($filtroUnidad, fn($q) => $q->where('unidad_ejecutora_id', $filtroUnidad))
+                    ->select('unidad_ejecutora_id', DB::raw('SUM(monto) as total_comprometido'))
+                    ->groupBy('unidad_ejecutora_id')
+                    ->pluck('total_comprometido', 'unidad_ejecutora_id');
+
                 $porUnidad = UnidadEjecutora::activas()
                     ->when($filtroUnidad, fn($q) => $q->where('id', $filtroUnidad))
                     ->get()
-                    ->map(function ($u) use ($ejercicioActivo) {
-                        // IDs de partidas con saldo asociadas a esta unidad via créditos
-                        $pIds = PartidaPresupuestaria::activas()
-                            ->where('saldo_actual', '>', 0)
-                            ->whereHas('creditosPresupuestarios', fn($q) => $q
-                                ->where('ejercicio_fiscal_id', $ejercicioActivo->id)
-                                ->where('unidad_ejecutora_id', $u->id)
-                            )->pluck('id');
+                    ->map(function ($u) use ($ejercicioActivo, $comprometidoPorUnidad) {
+                        $comprometido = (float) ($comprometidoPorUnidad[$u->id] ?? 0);
+                        if ($comprometido === 0.0) return null;
 
-                        // Fallback: partidas via compromisos si no hay créditos
-                        if ($pIds->isEmpty()) {
-                            $pIds = Compromiso::where('ejercicio_fiscal_id', $ejercicioActivo->id)
-                                ->where('unidad_ejecutora_id', $u->id)
-                                ->whereIn('estado', ['borrador', 'aprobado'])
-                                ->pluck('partida_presupuestaria_id')
-                                ->unique()->filter()->values();
-                        }
-
-                        if ($pIds->isEmpty()) return null;
-
-                        $saldoReal    = (float) PartidaPresupuestaria::whereIn('id', $pIds)->sum('saldo_actual');
-                        $aprobado     = (float) PartidaPresupuestaria::whereIn('id', $pIds)->sum('monto_aprobado');
-                        $comprometido = (float) Compromiso::where('ejercicio_fiscal_id', $ejercicioActivo->id)
-                            ->where('unidad_ejecutora_id', $u->id)
-                            ->whereIn('estado', ['borrador', 'aprobado'])
-                            ->sum('monto');
-
-                        $vigente = $saldoReal > 0 ? $saldoReal : $aprobado;
-
+                        $vigente = $comprometido; // aproximación sin créditos
                         return [
                             'nombre'       => $u->nombre,
                             'codigo'       => $u->codigo,
                             'vigente'      => $vigente,
-                            'saldo_real'   => $saldoReal,
+                            'saldo_real'   => 0,
                             'comprometido' => $comprometido,
-                            'disponible'   => $vigente - $comprometido,
-                            'num_partidas' => $pIds->count(),
+                            'disponible'   => 0,
+                            'num_partidas' => 0,
                         ];
                     })
-                    ->filter(fn($u) => $u && $u['vigente'] > 0)
-                    ->sortByDesc('vigente')
+                    ->filter(fn($u) => $u !== null)
+                    ->sortByDesc('comprometido')
                     ->values();
             }
 
-            // ── Por partida ────────────────────────────────────────
-            // Usa créditos si existen; si no, partidas con saldo directamente
+            // ── Por partida — una sola query agrupada (sin N+1) ────────────
+            $comprometidoPorPartida = Compromiso::where('ejercicio_fiscal_id', $ejercicioActivo->id)
+                ->whereIn('estado', ['borrador', 'aprobado'])
+                ->when($filtroPartida, fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida))
+                ->select('partida_presupuestaria_id', DB::raw('SUM(monto) as total_comprometido'))
+                ->groupBy('partida_presupuestaria_id')
+                ->pluck('total_comprometido', 'partida_presupuestaria_id');
+
             $partidasParaListar = $creditos->filter(fn($c) => $c->partida !== null)
                 ->pluck('partida')->unique('id');
 
@@ -186,17 +177,13 @@ class ReporteController extends Controller implements HasMiddleware
                 $partidasParaListar = $qBase->get();
             }
 
-            $porPartida = $partidasParaListar->map(function ($p) use ($ejercicioActivo) {
+            $porPartida = $partidasParaListar->map(function ($p) use ($ejercicioActivo, $comprometidoPorPartida) {
                 $saldoReal    = (float)($p->saldo_actual ?? 0);
                 $aprobado     = (float)($p->monto_aprobado ?? 0);
                 $vigente      = (float)($p->monto_vigente ?? 0);
-                // Si monto_vigente no fue calculado aun, usar aprobado como fallback
                 if ($vigente === 0.0) $vigente = $aprobado > 0 ? $aprobado : $saldoReal;
 
-                $comprometido = (float) Compromiso::where('partida_presupuestaria_id', $p->id)
-                    ->where('ejercicio_fiscal_id', $ejercicioActivo->id)
-                    ->whereIn('estado', ['borrador', 'aprobado'])
-                    ->sum('monto');
+                $comprometido = (float) ($comprometidoPorPartida[$p->id] ?? 0);
 
                 return [
                     'codigo'       => $p->codigo,

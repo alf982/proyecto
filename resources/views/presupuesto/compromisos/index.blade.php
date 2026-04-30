@@ -65,7 +65,12 @@
                 <td><span class="badge {{ $c->getEstadoBadgeClass() }}">{{ ucfirst($c->estado) }}</span></td>
                 <td style="text-align:right;">
                     <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
-                        <a href="{{ route('presupuesto.compromisos.show', $c) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye"></i></a>
+                        <a href="{{ route('presupuesto.compromisos.show', $c) }}" class="btn btn-outline btn-sm" title="Ver detalle"><i class="fa-solid fa-eye"></i></a>
+                        @if(!$c->esBorrador() && !$c->esAnulado())
+                        <a href="{{ route('pdf.compromisos.pdf', $c) }}" target="_blank" class="btn btn-outline btn-sm" style="color:var(--accent-danger);border-color:rgba(229,57,53,0.3)" title="Exportar PDF">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </a>
+                        @endif
                         @if($c->esBorrador())
                             <a href="{{ route('presupuesto.compromisos.edit', $c) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen-to-square"></i></a>
                             <form method="POST" action="{{ route('presupuesto.compromisos.aprobar', $c) }}" style="margin:0;">

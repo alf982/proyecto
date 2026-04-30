@@ -41,6 +41,11 @@
                 </a>
             @endif
         @endif
+        @if(!$compromiso->esBorrador() && !$compromiso->esAnulado())
+            <a href="{{ route('pdf.compromisos.pdf', $compromiso) }}" target="_blank" class="btn btn-sm" style="background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,.3);color:var(--accent-danger);">
+                <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+            </a>
+        @endif
         @if(!$compromiso->esAnulado())
             <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('modal-anular').style.display='flex'">
                 <i class="fa-solid fa-ban"></i> Anular

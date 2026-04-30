@@ -30,6 +30,7 @@ use App\Http\Controllers\Nomina\NominaController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\RolController;
 use App\Http\Controllers\PdfController;
+use App\Http\Controllers\PdfExportController;
 use App\Http\Controllers\ServerStatsController;
 use App\Http\Controllers\Retenciones\RetencionController;
 use App\Http\Controllers\Retenciones\RetencionCalculoController;
@@ -43,6 +44,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/api/server-stats', ServerStatsController::class)->name('server.stats');
+
+    // ── Exportaciones PDF asíncronas ────────────────────────────────────────
+    Route::prefix('pdf-exports')->name('pdf-exports.')->group(function () {
+        Route::get('/',                       [PdfExportController::class, 'index'])->name('index');
+        Route::get('/{archivo}/download',     [PdfExportController::class, 'download'])->name('download');
+        Route::delete('/{archivo}',           [PdfExportController::class, 'destroy'])->name('destroy');
+    });
 
     // ── Selector de Ejercicio Fiscal ────────────────────────────
     Route::post('/ejercicio/seleccionar', function (\Illuminate\Http\Request $request) {
@@ -260,7 +268,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('nomina/{nomina}',               [PdfController::class, 'nomina'])->name('nomina');
         // Compras
         Route::get('orden-compra/{orden}',          [PdfController::class, 'ordenCompra'])->name('orden-compra');
-        Route::get('recepcion-bienes/{recepcion}',  [PdfController::class, 'recepcionBienes'])->name('recepcion-bienes');
+        Route::get('recepciones/{recepcion}/pdf',   [PdfController::class, 'recepcionBienes'])->name('recepciones.pdf');
+        Route::get('compromisos/{compromiso}/pdf',  [PdfController::class, 'compromiso'])->name('compromisos.pdf');
         // Bienes
         Route::get('inventario-bienes',             [PdfController::class, 'inventarioBienes'])->name('inventario-bienes');
     });

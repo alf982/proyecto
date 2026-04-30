@@ -42,8 +42,8 @@
         @endif
 
         <a href="{{ route('pdf.orden-pago', $orden) }}" target="_blank" class="btn btn-sm"
-           style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">
-            <i class="fa-solid fa-file-pdf"></i> PDF
+           style="background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,.3);color:var(--accent-danger);">
+            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
         </a>
     </div>
 </div>

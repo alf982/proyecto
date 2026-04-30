@@ -12,6 +12,12 @@ class Compromiso extends Model implements Auditable
 
     protected $table = 'compromisos';
 
+    /**
+     * Relaciones siempre necesarias. Cargadas automáticamente
+     * para evitar lazy loading en show(), aprobar() y anular().
+     */
+    protected $with = ['partida'];
+
     protected $fillable = [
         'numero', 'ejercicio_fiscal_id', 'unidad_ejecutora_id',
         'credito_presupuestario_id', 'partida_presupuestaria_id', 'proyecto_id',
@@ -22,6 +28,7 @@ class Compromiso extends Model implements Auditable
         'observaciones', 'motivo_anulacion', 'fecha_aprobacion',
         'created_by', 'aprobado_por',
     ];
+
 
     protected function casts(): array {
         return [
@@ -67,13 +74,18 @@ class Compromiso extends Model implements Auditable
     }
 
     public static function generarNumero(int $anio): string {
-        do {
-            $ultimo = static::whereYear('created_at', $anio)
-                ->orderByDesc('id')
-                ->value('numero');
-            $seq = $ultimo ? ((int) substr($ultimo, -4)) + 1 : 1;
-            $numero = 'COM-' . $anio . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
-        } while (static::where('numero', $numero)->exists());
+        $prefijo = 'COM-' . $anio . '-';
+        // MAX en una sola query — evita el loop do/while con 2 queries cada iteración
+        $ultimo = static::whereYear('created_at', $anio)
+            ->max('id');
+        $seq = $ultimo
+            ? ((int) substr(static::where('id', $ultimo)->value('numero') ?? '0', -4)) + 1
+            : 1;
+        $numero = $prefijo . str_pad($seq, 4, '0', STR_PAD_LEFT);
+        // Colisión extremadamente rara pero la verificamos igual
+        while (static::where('numero', $numero)->exists()) {
+            $numero = $prefijo . str_pad(++$seq, 4, '0', STR_PAD_LEFT);
+        }
         return $numero;
     }
 }

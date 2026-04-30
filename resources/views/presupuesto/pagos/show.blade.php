@@ -16,7 +16,7 @@
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
         <a href="{{ route('pdf.pago', $pago) }}" target="_blank" class="btn btn-outline btn-sm" style="color:var(--accent-danger);border-color:var(--accent-danger);">
-            <i class="fa-regular fa-file-pdf"></i> Reporte de Pago
+            <i class="fa-regular fa-file-pdf"></i> Exportar PDF
         </a>
         @if($pago->esPendiente())
         <button type="button" class="btn btn-primary btn-sm"
@@ -191,7 +191,7 @@
                     <td style="padding:12px 16px;text-align:center;">{{ $ra->porcentaje_aplicado ? number_format($ra->porcentaje_aplicado, 2).'%' : '—' }}</td>
                     <td style="padding:12px 16px;font-weight:600;color:var(--accent-danger);text-align:right;">{{ number_format($ra->monto_retenido, 2) }}</td>
                     <td style="padding:12px 16px;text-align:center;">
-                        <a href="{{ route('pdf.retencion-aplicada', $ra) }}" target="_blank" class="btn btn-outline btn-sm" title="Comprobante PDF" style="padding:4px 8px;">
+                        <a href="{{ route('pdf.retencion-aplicada', $ra) }}" target="_blank" class="btn btn-outline btn-sm" title="Exportar PDF" style="padding:4px 8px;">
                             <i class="fa-regular fa-file-pdf" style="color:var(--accent-danger);font-size:14px;"></i>
                         </a>
                     </td>
