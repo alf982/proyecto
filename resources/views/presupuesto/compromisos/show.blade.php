@@ -16,13 +16,17 @@
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
         @if($compromiso->esBorrador())
+            @can('compromisos.crear')
             <a href="{{ route('presupuesto.compromisos.edit', $compromiso) }}" class="btn btn-outline btn-sm">
                 <i class="fa-solid fa-pen-to-square"></i> Editar
             </a>
+            @endcan
+            @can('compromisos.aprobar')
             <button type="button" class="btn btn-sm" style="background:rgba(34,211,166,0.15);border:1px solid rgba(34,211,166,.35);color:var(--accent-3);"
                 onclick="accionForm('{{ route('presupuesto.compromisos.aprobar', $compromiso) }}','¿Aprobar este compromiso?')">
                 <i class="fa-solid fa-check"></i> Aprobar
             </button>
+            @endcan
         @endif
         @if($compromiso->esAprobado())
             @php
@@ -35,10 +39,12 @@
                     <i class="fa-solid fa-eye"></i> Ver Causación
                 </a>
             @else
+                @can('causaciones.crear')
                 <a href="{{ route('presupuesto.causaciones.create', ['compromiso_id' => $compromiso->id]) }}"
                    class="btn btn-primary btn-sm">
                     <i class="fa-solid fa-file-invoice-dollar"></i> Crear Causación
                 </a>
+                @endcan
             @endif
         @endif
         @if(!$compromiso->esBorrador() && !$compromiso->esAnulado())
@@ -46,11 +52,13 @@
                 <i class="fa-solid fa-file-pdf"></i> Exportar PDF
             </a>
         @endif
+        @can('compromisos.anular')
         @if(!$compromiso->esAnulado())
             <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('modal-anular').style.display='flex'">
                 <i class="fa-solid fa-ban"></i> Anular
             </button>
         @endif
+        @endcan
     </div>
 </div>
 
@@ -167,7 +175,8 @@
 </div>
 @endif
 
-<!-- Modal anular -->
+{{-- Modal anular — solo se renderiza si el usuario tiene permiso --}}
+@can('compromisos.anular')
 <div id="modal-anular" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:min(480px,90vw);">
         <h3 style="font-size:16px;margin-bottom:8px;color:var(--accent-danger);"><i class="fa-solid fa-ban"></i> Anular Compromiso</h3>
@@ -185,6 +194,7 @@
         </form>
     </div>
 </div>
+@endcan
 <form id="form-accion" method="POST" action="" style="display:none;">@csrf</form>
 @endsection
 @push('scripts')

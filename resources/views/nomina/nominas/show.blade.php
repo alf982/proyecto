@@ -15,17 +15,22 @@
             <i class="fa-solid fa-file-pdf"></i> Exportar PDF
         </a>
         @if($nomina->estado === 'calculada')
+        @can('nomina.aprobar')
         <form method="POST" action="{{ route('nomina.nominas.aprobar', $nomina) }}">@csrf<button class="btn btn-primary btn-sm">✓ Aprobar Nómina</button></form>
+        @endcan
         @endif
+        @can('nomina.anular')
         @if(!in_array($nomina->estado, ['pagada','anulada']))
         <form method="POST" action="{{ route('nomina.nominas.anular', $nomina) }}">@csrf<button class="btn btn-danger btn-sm" onclick="return confirm('¿Anular?')">Anular</button></form>
         @endif
+        @endcan
     </div>
 </div>
 
 @include('components.alert')
 
 {{-- Panel de pago con selector de partida --}}
+@can('nomina.pagar')
 @if($nomina->estado === 'aprobada')
 <div class="card fade-up" style="margin-bottom:20px;border:1px solid rgba(34,211,166,0.3);background:rgba(34,211,166,0.04);">
     <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(34,211,166,0.2);">
@@ -83,6 +88,7 @@
     </div>
 </div>
 @endif
+@endcan
 
 {{-- Info partida si ya fue pagada --}}
 @if($nomina->estado === 'pagada' && $nomina->partida)

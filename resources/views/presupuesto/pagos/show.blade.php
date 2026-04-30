@@ -19,17 +19,21 @@
             <i class="fa-regular fa-file-pdf"></i> Exportar PDF
         </a>
         @if($pago->esPendiente())
+        @can('pagos.procesar')
         <button type="button" class="btn btn-primary btn-sm"
             onclick="document.getElementById('modal-procesar').style.display='flex'">
             <i class="fa-solid fa-money-bill-wave"></i> Procesar Pago
         </button>
+        @endcan
         @endif
+        @can('pagos.anular')
         @if(!$pago->esAnulado())
         <button type="button" class="btn btn-danger btn-sm"
             onclick="document.getElementById('modal-anular').style.display='flex'">
             <i class="fa-solid fa-ban"></i> Anular
         </button>
         @endif
+        @endcan
     </div>
 </div>
 
@@ -266,6 +270,7 @@
 </div>
 
 {{-- Modal procesar --}}
+@can('pagos.procesar')
 @if($pago->esPendiente())
 <div id="modal-procesar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:999;align-items:center;justify-content:center;">
     <div style="background:var(--bg-card);border:1px solid rgba(34,211,166,0.3);border-radius:14px;padding:28px;width:480px;max-width:95vw;">
@@ -312,8 +317,10 @@
     </div>
 </div>
 @endif
+@endcan
 
 {{-- Modal anular --}}
+@can('pagos.anular')
 <div id="modal-anular" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:min(480px,90vw);">
         <h3 style="font-size:16px;margin-bottom:8px;color:var(--accent-danger);">
@@ -341,4 +348,5 @@
         </form>
     </div>
 </div>
+@endcan
 @endsection

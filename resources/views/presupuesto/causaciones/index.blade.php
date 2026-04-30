@@ -12,9 +12,11 @@
         <h1 class="page-title">Causaciones / Órdenes de Pago</h1>
         <p class="page-subtitle">Registro de compromisos y órdenes de pago emitidas</p>
     </div>
+    @can('causaciones.crear')
     <a href="{{ route('presupuesto.causaciones.create') }}" class="btn btn-primary">
         <i class="fa-solid fa-plus"></i> Nueva Causación
     </a>
+    @endcan
 </div>
 
 <!-- Filtros -->
@@ -123,9 +125,11 @@
                                 <i class="fa-solid fa-eye"></i>
                             </a>
                             @if($causacion->esBorrador())
+                            @can('causaciones.crear')
                             <a href="{{ route('presupuesto.causaciones.edit', $causacion) }}" class="btn btn-outline btn-sm" title="Editar">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
+                            @endcan
                             @endif
                         </div>
                     </td>

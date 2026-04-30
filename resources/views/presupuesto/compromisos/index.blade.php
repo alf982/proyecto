@@ -11,7 +11,9 @@
         <h1 class="page-title">Compromisos Presupuestarios</h1>
         <p class="page-subtitle">Reservas de crédito previas a la causación</p>
     </div>
+    @can('compromisos.crear')
     <a href="{{ route('presupuesto.compromisos.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nuevo Compromiso</a>
+    @endcan
 </div>
 
 <div class="card fade-up" style="margin-bottom:18px;">
@@ -72,13 +74,17 @@
                         </a>
                         @endif
                         @if($c->esBorrador())
+                            @can('compromisos.crear')
                             <a href="{{ route('presupuesto.compromisos.edit', $c) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen-to-square"></i></a>
+                            @endcan
+                            @can('compromisos.aprobar')
                             <form method="POST" action="{{ route('presupuesto.compromisos.aprobar', $c) }}" style="margin:0;">
                                 @csrf
                                 <button type="submit" class="btn btn-sm" style="background:rgba(34,211,166,0.15);border:1px solid rgba(34,211,166,.35);color:var(--accent-3);">
                                     <i class="fa-solid fa-check"></i> Aprobar
                                 </button>
                             </form>
+                            @endcan
                         @endif
                     </div>
                 </td>

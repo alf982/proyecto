@@ -21,9 +21,12 @@
             <i class="fa-solid fa-file-pdf"></i> Exportar PDF
         </a>
         @if($causacion->esBorrador())
+        @can('causaciones.crear')
         <a href="{{ route('presupuesto.causaciones.edit', $causacion) }}" class="btn btn-outline btn-sm">
             <i class="fa-solid fa-pen-to-square"></i> Editar
         </a>
+        @endcan
+        @can('causaciones.aprobar')
         <form method="POST" action="{{ route('presupuesto.causaciones.aprobar', $causacion) }}" style="margin:0">
             @csrf
             <button type="submit" class="btn btn-sm" style="background:rgba(34,211,166,0.15);border:1px solid rgba(34,211,166,0.3);color:var(--accent-3);"
@@ -31,18 +34,23 @@
                 <i class="fa-solid fa-circle-check"></i> Aprobar
             </button>
         </form>
+        @endcan
         @endif
         @if($causacion->esAprobada())
+        @can('pagos.crear')
         <a href="{{ route('presupuesto.pagos.create', ['causacion_id' => $causacion->id]) }}"
            class="btn btn-sm" style="background:rgba(34,211,166,0.15);border:1px solid rgba(34,211,166,0.35);color:var(--accent-3);">
             <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
         </a>
+        @endcan
         @endif
+        @can('causaciones.anular')
         @if(!$causacion->esPagada() && !$causacion->esAnulada())
         <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('modal-anular').style.display='flex'">
             <i class="fa-solid fa-ban"></i> Anular
         </button>
         @endif
+        @endcan
     </div>
 </div>
 
@@ -187,7 +195,8 @@
     </div>
 </div>
 
-<!-- Modal anular -->
+{{-- Modal anular — solo se renderiza si el usuario tiene permiso --}}
+@can('causaciones.anular')
 <div id="modal-anular" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:min(480px,90vw);">
         <h3 style="font-size:16px;margin-bottom:8px;color:var(--accent-danger);"><i class="fa-solid fa-ban"></i> Anular Causación</h3>
@@ -207,4 +216,5 @@
         </form>
     </div>
 </div>
+@endcan
 @endsection
