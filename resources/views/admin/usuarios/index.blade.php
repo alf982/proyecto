@@ -7,6 +7,12 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA INDEX DE USUARIOS
+  Muestra el listado de todos los usuarios registrados en el sistema.
+  Incluye barra de búsqueda (por nombre/email) y filtro por Rol.
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div>
         <h1 class="page-title">Usuarios del Sistema</h1>
@@ -19,7 +25,7 @@
     @endcan
 </div>
 
-<!-- Filtros -->
+<!-- Filtros de Búsqueda -->
 <div class="card fade-up" style="margin-bottom:20px;">
     <div class="card-body" style="padding:16px 22px;">
         <form method="GET" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
@@ -47,7 +53,7 @@
     </div>
 </div>
 
-<!-- Table -->
+<!-- Tabla de Resultados -->
 <div class="card fade-up" style="animation-delay:.05s">
     <div class="table-wrap">
         <table>
@@ -133,13 +139,8 @@
             </tbody>
         </table>
     </div>
-    @if($q->hasPages())
-    <div class="pagination">
-        @foreach($q->links()->elements[0] as $page => $url)
-            <a href="{{ $url }}" class="page-link {{ $q->currentPage() == $page ? 'active' : '' }}">{{ $page }}</a>
-        @endforeach
-        <span class="page-info">{{ $q->firstItem() }}–{{ $q->lastItem() }} de {{ $q->total() }}</span>
-    </div>
-    @endif
+    
+    {{-- Componente reutilizable de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

@@ -4,9 +4,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use App\Traits\FiltraPorEjercicio;
+
+/**
+ * Modelo de Solicitud de Despacho (Pedidos Internos)
+ * 
+ * Gestiona las peticiones de insumos y materiales realizadas por
+ * las distintas Unidades Ejecutoras (departamentos) hacia el almacén central.
+ * A diferencia de la Solicitud de Compra (que sale hacia proveedores),
+ * el Despacho implica un descargo directo del inventario existente (Kardex).
+ */
 class SolicitudDespacho extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
 
     protected $table = 'solicitudes_despacho';
 
@@ -26,16 +36,23 @@ class SolicitudDespacho extends Model
     ];
 
     // ── Relaciones ──────────────────────────────────────────────────
+    
+    /** Departamento u oficina que requiere los insumos */
     public function unidadEjecutora() { return $this->belongsTo(UnidadEjecutora::class); }
+    
     public function solicitadoPor()   { return $this->belongsTo(User::class, 'solicitado_por'); }
     public function aprobadoPor()     { return $this->belongsTo(User::class, 'aprobado_por'); }
+    
+    /** Líneas de artículos requeridos */
     public function detalles()        { return $this->hasMany(SolicitudDespachoDetalle::class)->orderBy('orden'); }
 
     // ── Scopes ───────────────────────────────────────────────────────
+    
     public function scopePendientes($q) { return $q->whereIn('estado', ['enviada', 'borrador']); }
     public function scopeAprobadas($q)  { return $q->where('estado', 'aprobada'); }
 
     // ── Helpers de estado ────────────────────────────────────────────
+    
     public function esBorrador(): bool  { return $this->estado === 'borrador'; }
     public function esEnviada(): bool   { return $this->estado === 'enviada'; }
     public function esAprobada(): bool  { return $this->estado === 'aprobada'; }

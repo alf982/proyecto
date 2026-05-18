@@ -4,6 +4,13 @@
     <span>Almacén</span><span class="breadcrumb-sep">›</span><span class="current">Solicitudes de Artículos</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE SOLICITUDES DE DESPACHO
+  Bandeja de entrada del almacén para procesar los pedidos internos de las oficinas.
+  Incluye KPIs y alertas rápidas para solicitudes pendientes de entrega física.
+--}}
+
 <div class="page-header">
     <div>
         <h1 class="page-title">Solicitudes de Artículos</h1>
@@ -109,7 +116,13 @@
             <tbody>
                 @forelse($q as $sol)
                 <tr>
-                    <td><a href="{{ route('almacen.solicitudes.show', $sol) }}" style="color:var(--primary);font-family:monospace;font-weight:600">{{ $sol->numero }}</a></td>
+                    <td>
+                        @can('almacen.solicitudes.ver')
+                        <a href="{{ route('almacen.solicitudes.show', $sol) }}" style="color:var(--primary);font-family:monospace;font-weight:600">{{ $sol->numero }}</a>
+                        @else
+                        <span style="font-family:monospace;font-weight:600">{{ $sol->numero }}</span>
+                        @endcan
+                    </td>
                     <td style="font-size:.85rem">{{ $sol->unidadEjecutora?->nombre }}</td>
                     <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.85rem">{{ $sol->motivo }}</td>
                     <td><span class="badge {{ $sol->getPrioridadBadge() }}" style="font-size:.7rem">{{ ucfirst($sol->prioridad) }}</span></td>
@@ -118,7 +131,9 @@
                     <td style="font-size:.85rem">{{ $sol->solicitadoPor?->name ?? '—' }}</td>
                     <td>
                         <div style="display:flex;gap:.35rem;align-items:center">
+                            @can('almacen.solicitudes.ver')
                             <a href="{{ route('almacen.solicitudes.show', $sol) }}" class="btn-icon" title="Ver detalle">👁</a>
+                            @endcan
                             @can('almacen.solicitudes.aprobar')
                             @if($sol->esAprobada())
                             <a href="{{ route('almacen.solicitudes.show', $sol) }}" class="btn btn-primary" style="font-size:.72rem;padding:.25rem .6rem" title="Registrar entrega">📦 Entregar</a>
@@ -133,6 +148,8 @@
             </tbody>
         </table>
     </div>
-    <div style="padding:1rem">{{ $q->links() }}</div>
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

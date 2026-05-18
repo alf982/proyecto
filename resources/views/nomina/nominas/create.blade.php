@@ -11,7 +11,7 @@
 @if(!$ejercicio)
 <div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation"></i> No hay ejercicio fiscal activo. Active uno antes de crear una nómina.</div>
 @endif
-<form method="POST" action="{{ route('nomina.nominas.store') }}">
+<form method="POST" action="{{ route('nomina.nominas.store') }}" id="form-crear-nomina">
 @csrf
 <div class="card fade-up">
     <div class="card-header"><div class="card-title">Datos de la Nómina</div></div>
@@ -87,7 +87,7 @@
 ])
 
 <div style="display:flex;gap:10px;margin-top:16px;">
-    <button type="submit" class="btn btn-primary" {{ !$ejercicio ? 'disabled' : '' }}><i class="fa-solid fa-calculator"></i> Calcular Nómina</button>
+    <button type="submit" class="btn btn-primary" id="btn-submit-nomina" {{ !$ejercicio ? 'disabled' : '' }}><i class="fa-solid fa-calculator"></i> Calcular Nómina</button>
     <a href="{{ route('nomina.nominas.index') }}" class="btn btn-outline">Cancelar</a>
 </div>
 </form>
@@ -107,6 +107,17 @@ function mostrarSaldoPartida(sel) {
 window.addEventListener('DOMContentLoaded', () => {
     const sel = document.getElementById('sel-partida-nomina');
     if (sel?.value) mostrarSaldoPartida(sel);
+
+    const form = document.getElementById('form-crear-nomina');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const btn = document.getElementById('btn-submit-nomina');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Calculando...';
+            }
+        });
+    }
 });
 </script>
 @endpush

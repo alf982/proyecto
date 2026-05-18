@@ -15,8 +15,24 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
+/**
+ * Controlador de Causaciones
+ * 
+ * Gestiona el reconocimiento contable de la deuda adquirida mediante un compromiso.
+ * Delega la lógica de negocio (aplicación de retenciones, cálculo de saldo causado, anulación)
+ * al `CausacionService`.
+ * 
+ * Ciclo de Estado:
+ * 1. Borrador (Creada automáticamente al aprobar un Compromiso, o manualmente referenciando un Compromiso)
+ * 2. Aprobada (Validada, con factura registrada y retenciones aplicadas. Lista para Pago)
+ * 3. Pagada (Se procesó la orden de pago)
+ * 4. Anulada (Revierte el estatus del Compromiso a 'Aprobado')
+ */
 class CausacionController extends Controller implements HasMiddleware
 {
+    /**
+     * Inyección de dependencia del servicio de negocio.
+     */
     public function __construct(private readonly CausacionService $service) {}
 
     public static function middleware(): array
@@ -31,6 +47,11 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── LISTADO ──────────────────────────────────────────────────────
+    
+    /**
+     * Muestra el listado de Causaciones.
+     * Incluye una "bandeja de entrada" con las causaciones en borrador pendientes de revisión.
+     */
     public function index(Request $request)
     {
         $ejercicioId = session('ejercicio_id');
@@ -51,10 +72,23 @@ class CausacionController extends Controller implements HasMiddleware
         $ejercicios = CatalogoCache::ejercicios();
         $unidades   = CatalogoCache::unidades();
 
-        return view('presupuesto.causaciones.index', compact('q', 'ejercicios', 'unidades'));
+        // Causaciones en borrador pendientes de aprobación
+        $causacionesPendientes = Causacion::where('estado', 'borrador')
+            ->with(['unidadEjecutora:id,nombre', 'partida:id,codigo,descripcion', 'compromiso:id,numero'])
+            ->select(['id', 'numero', 'beneficiario', 'monto_causado', 'fecha_causacion', 'concepto', 'unidad_ejecutora_id', 'partida_presupuestaria_id', 'compromiso_id'])
+            ->orderByDesc('id')
+            ->get();
+
+        return view('presupuesto.causaciones.index', compact('q', 'ejercicios', 'unidades', 'causacionesPendientes'));
     }
 
     // ── CREAR ──────────────────────────────────────────────────────
+    
+    /**
+     * Formulario para crear causación desde cero vinculándola a un Compromiso Aprobado.
+     * (Normalmente las causaciones nacen automáticas en borrador al aprobar el compromiso,
+     * pero este método sirve para causaciones parciales).
+     */
     public function create(Request $request)
     {
         $compromisos = Compromiso::with(['partida', 'unidadEjecutora'])
@@ -71,6 +105,12 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── GUARDAR ───────────────────────────────────────────────────────
+    
+    /**
+     * Procesa el guardado de la causación. 
+     * Se comunica con CausacionService para validar que no exceda el monto comprometido
+     * y aplica las retenciones enviadas en el Request.
+     */
     public function store(StoreCausacionRequest $request)
     {
         $compromiso     = Compromiso::with('partida')->findOrFail($request->compromiso_id);
@@ -87,6 +127,10 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── DETALLE ───────────────────────────────────────────────────────
+    
+    /**
+     * Vista de detalle (Show) de la causación.
+     */
     public function show(Causacion $causacion)
     {
         $causacion->load(['ejercicioFiscal', 'unidadEjecutora', 'partida', 'compromiso', 'proyecto', 'creadoPor', 'aprobadoPor', 'pagos']);
@@ -94,6 +138,11 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── EDITAR ────────────────────────────────────────────────────────
+    
+    /**
+     * Formulario para editar datos de la causación (facturas, fechas).
+     * Solo disponible en estado borrador.
+     */
     public function edit(Causacion $causacion)
     {
         if (!$causacion->esBorrador()) {
@@ -104,6 +153,10 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── ACTUALIZAR ────────────────────────────────────────────────────
+    
+    /**
+     * Guarda la edición básica.
+     */
     public function update(Request $request, Causacion $causacion)
     {
         if (!$causacion->esBorrador()) {
@@ -139,6 +192,11 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── APROBAR ───────────────────────────────────────────────────────
+    
+    /**
+     * Verifica la validez del documento y consolida la deuda.
+     * Delega al Service que marca la causación y genera el Pago en estado borrador.
+     */
     public function aprobar(Causacion $causacion)
     {
         try {
@@ -152,6 +210,12 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── PAGAR (marcar como lista para pago) ──────────────────────────
+    
+    /**
+     * Alias de marcaje manual a estado 'pagada'. 
+     * Normalmente este estado se cambia automáticamente desde el PagoController,
+     * pero existe aquí como utilidad rápida si el módulo de caja es manual.
+     */
     public function pagar(Causacion $causacion)
     {
         if (!$causacion->esAprobada()) {
@@ -168,6 +232,13 @@ class CausacionController extends Controller implements HasMiddleware
     }
 
     // ── ANULAR ────────────────────────────────────────────────────────
+    
+    /**
+     * Proceso de reverso del devengado.
+     * Delega al Service, quien verifica que no existan pagos procesados.
+     * Al anular la Causación, se reversa el estado del Compromiso a 'Aprobado'
+     * y las causaciones quedan en 'Anulado'.
+     */
     public function anular(AnularRequest $request, Causacion $causacion)
     {
 

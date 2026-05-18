@@ -7,6 +7,12 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA INDEX DEL CATÁLOGO DE PARTIDAS
+  Muestra el árbol de cuentas presupuestarias.
+  Soporta búsqueda por código ONAPRE o descripción.
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div>
         <h1 class="page-title">Catálogo de Partidas Presupuestarias</h1>
@@ -87,9 +93,10 @@
                             </a>
                             @endcan
                             @can('partidas.eliminar')
-                            <form method="POST" action="{{ route('presupuesto.partidas.destroy', $partida) }}" style="margin:0;">
+                            <form method="POST" action="{{ route('presupuesto.partidas.destroy', $partida) }}" style="margin:0;"
+                                  onsubmit="return confirm('ATENCIÓN PELIGRO: ¿Está seguro de eliminar esta partida?\n\nEsta acción es DESTRUCTIVA. Eliminará EN CASCADA todos los Compromisos, Causaciones, Pagos y Retenciones asociados a esta partida de forma irreversible.')">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
+                                <button type="submit" class="btn btn-danger btn-sm" title="Borrado Forzado"><i class="fa-solid fa-trash"></i></button>
                             </form>
                             @endcan
                         </div>
@@ -107,11 +114,8 @@
             </tbody>
         </table>
     </div>
-    @if($partidas->hasPages())
-    <div class="pagination">
-        {{ $partidas->links() }}
-        <span class="page-info">{{ $partidas->firstItem() }}–{{ $partidas->lastItem() }} de {{ $partidas->total() }}</span>
-    </div>
-    @endif
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$partidas" />
 </div>
 @endsection

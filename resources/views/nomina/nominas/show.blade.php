@@ -12,7 +12,7 @@
         <span class="badge {{ $nomina->estadoBadge() }}" style="font-size:13px;padding:5px 14px;">{{ ucfirst($nomina->estado) }}</span>
         <a href="{{ route('pdf.nomina', $nomina) }}" target="_blank" class="btn btn-sm"
            style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">
-            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+            <i class="fa-solid fa-file-pdf"></i> Reporte General PDF
         </a>
         @if($nomina->estado === 'calculada')
         @can('nomina.aprobar')
@@ -105,42 +105,95 @@
 </div>
 @endif
 
+@php
+    $totalRetenido = $nomina->retenciones->sum('monto_retenido');
+    $porcentajeRetenido = $nomina->retenciones->sum('porcentaje_aplicado');
+    $netoADispersar = $nomina->total_neto - $totalRetenido;
+@endphp
+
 {{-- KPI cards --}}
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+<div style="display:grid;grid-template-columns:repeat({{ $totalRetenido > 0 ? '5' : '3' }}, 1fr);gap:16px;margin-bottom:20px;">
     <div class="card fade-up" style="padding:18px;">
-        <div style="font-size:11px;color:var(--text-secondary);">TOTAL ASIGNACIONES</div>
-        <div style="font-size:22px;font-weight:800;color:var(--accent-3);">Bs. {{ number_format($nomina->total_asignaciones,2) }}</div>
+        <div style="font-size:11px;color:var(--text-secondary);">ASIGNACIONES</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent-3);">Bs. {{ number_format($nomina->total_asignaciones,2) }}</div>
     </div>
     <div class="card fade-up" style="padding:18px;animation-delay:.05s">
-        <div style="font-size:11px;color:var(--text-secondary);">TOTAL DEDUCCIONES</div>
-        <div style="font-size:22px;font-weight:800;color:var(--accent-danger);">Bs. {{ number_format($nomina->total_deducciones,2) }}</div>
+        <div style="font-size:11px;color:var(--text-secondary);">DEDUCCIONES</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent-danger);">Bs. {{ number_format($nomina->total_deducciones,2) }}</div>
     </div>
-    <div class="card fade-up" style="padding:18px;animation-delay:.1s;border-color:rgba(34,211,166,0.3);">
-        <div style="font-size:11px;color:var(--text-secondary);">NETO A PAGAR</div>
-        <div style="font-size:22px;font-weight:800;color:var(--accent-3);">Bs. {{ number_format($nomina->total_neto,2) }}</div>
+    <div class="card fade-up" style="padding:18px;animation-delay:.1s;">
+        <div style="font-size:11px;color:var(--text-secondary);">SUB-TOTAL NETO</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent-3);">Bs. {{ number_format($nomina->total_neto,2) }}</div>
     </div>
+    @if($totalRetenido > 0)
+    <div class="card fade-up" style="padding:18px;animation-delay:.12s;background:rgba(247,185,79,0.05);border-color:rgba(247,185,79,0.3);">
+        <div style="font-size:11px;color:var(--text-secondary);">RETENCIONES</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent-warn);">Bs. {{ number_format($totalRetenido,2) }}</div>
+    </div>
+    <div class="card fade-up" style="padding:18px;animation-delay:.15s;border-color:var(--accent-3);background:rgba(34,211,166,0.05);">
+        <div style="font-size:11px;color:var(--text-secondary);">A DEPOSITAR</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent-3);">Bs. {{ number_format($netoADispersar,2) }}</div>
+    </div>
+    @endif
 </div>
 
 <div class="card fade-up" style="animation-delay:.15s">
     <div class="card-header">
         <div class="card-title">Detalle por Empleado ({{ $nomina->detalles->count() }} registros)</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:var(--text-secondary);">Recibo individual:</span>
+            @foreach($nomina->detalles as $det)
+            <a href="{{ route('pdf.nomina.recibo', [$nomina, $det]) }}" target="_blank"
+               style="font-size:11px;color:var(--accent);white-space:nowrap;" title="Recibo de {{ $det->empleado->nombre_completo }}">
+                <i class="fa-solid fa-file-pdf"></i>
+            </a>
+            @endforeach
+        </div>
     </div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Empleado</th><th>Cargo</th><th>Sueldo Base</th><th>Asignaciones</th><th>Deducciones</th><th>Neto</th><th></th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Cargo</th>
+                    <th>Sueldo Base</th>
+                    <th>Asignaciones</th>
+                    <th>Deducciones</th>
+                    <th>Sub-Neto</th>
+                    @if($totalRetenido > 0)
+                        <th>Retenciones</th>
+                        <th>Depositar</th>
+                    @endif
+                    <th></th>
+                </tr>
+            </thead>
             <tbody>
             @foreach($nomina->detalles as $det)
+            @php 
+                $retInd = $det->neto * ($porcentajeRetenido / 100); 
+                $depositoInd = $det->neto - $retInd;
+            @endphp
             <tr>
                 <td>
                     <div style="font-weight:600;">{{ $det->empleado->nombre_completo }}</div>
                     <div style="font-size:11px;color:var(--text-secondary);">{{ $det->empleado->cedula }}</div>
                 </td>
                 <td style="font-size:12px;">{{ $det->empleado->cargo->nombre ?? '—' }}</td>
-                <td>Bs. {{ number_format($det->salario_base,2) }}</td>
-                <td style="color:var(--accent-3);">Bs. {{ number_format($det->total_asignaciones,2) }}</td>
-                <td style="color:var(--accent-danger);">Bs. {{ number_format($det->total_deducciones,2) }}</td>
-                <td style="font-weight:700;color:var(--accent-3);">Bs. {{ number_format($det->neto,2) }}</td>
-                <td></td>
+                <td style="white-space:nowrap;">Bs. {{ number_format($det->salario_base,2) }}</td>
+                <td style="color:var(--accent-3);white-space:nowrap;">Bs. {{ number_format($det->total_asignaciones,2) }}</td>
+                <td style="color:var(--accent-danger);white-space:nowrap;">Bs. {{ number_format($det->total_deducciones,2) }}</td>
+                <td style="font-weight:700;color:var(--accent-3);white-space:nowrap;">Bs. {{ number_format($det->neto,2) }}</td>
+                @if($totalRetenido > 0)
+                    <td style="color:var(--accent-warn);white-space:nowrap;">Bs. {{ number_format($retInd,2) }}</td>
+                    <td style="font-weight:800;color:var(--accent-3);white-space:nowrap;">Bs. {{ number_format($depositoInd,2) }}</td>
+                @endif
+                <td>
+                    <a href="{{ route('pdf.nomina.recibo', [$nomina, $det]) }}" target="_blank"
+                       class="btn btn-sm" title="Descargar Recibo Individual"
+                       style="color:#ef4444;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.07);padding:3px 9px;">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </a>
+                </td>
             </tr>
             @endforeach
             </tbody>

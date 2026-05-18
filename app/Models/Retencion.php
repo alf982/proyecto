@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Modelo de Retención Fiscal
+ * 
+ * Gestiona el catálogo centralizado de impuestos y retenciones aplicables
+ * a diferentes módulos del sistema (Causaciones, Pagos, Órdenes de Compra, Nómina).
+ * Define reglas de cálculo dinámicas (porcentajes sobre base bruta/neta, porcentajes
+ * sobre el IVA, o montos fijos).
+ */
 class Retencion extends Model
 {
     use SoftDeletes;
@@ -40,7 +48,7 @@ class Retencion extends Model
 
     // ── Relaciones ──────────────────────────────────────────────────
 
-    /** Aplicaciones polimórficas de esta retención */
+    /** Aplicaciones polimórficas de esta retención (Dónde y a quién se aplicó) */
     public function aplicaciones()
     {
         return $this->hasMany(RetencionAplicada::class, 'retencion_id');
@@ -53,22 +61,22 @@ class Retencion extends Model
         return $query->where('activo', true);
     }
 
-    /** Devuelve solo las retenciones que aplican a un módulo dado */
+    /** Devuelve solo las retenciones que aplican a un módulo dado (ej. 'causacion') */
     public function scopeParaModulo(Builder $query, string $modulo): Builder
     {
         return $query->whereJsonContains('aplica_a', $modulo);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────
+    // ── Lógica de Negocio y Helpers ─────────────────────────────────
 
     /**
-     * Calcula el monto a retener dado un monto base.
+     * Calcula el monto a retener dado un monto base (totalConIva).
      *
-     * - porcentaje:     % sobre el monto_bruto o monto_neto de la factura.
-     * - porcentaje_iva: % sobre el IVA ya incluido en la factura.
-     *                   Ej: factura = 116,000 (base 100,000 + IVA 16%),
-     *                   retención 75% del IVA = 75% × 16,000 = 12,000.
-     * - monto_fijo:     valor fijo independiente del monto.
+     * Reglas de negocio:
+     * - `porcentaje_iva`: Extrae el IVA usando la `alicuota_iva` configurada, y a ese IVA le aplica el `porcentaje`.
+     *                   Ej: Total factura = 116, alícuota = 16%. IVA extraído = 16. Retención = 75% de 16 = 12.
+     * - `porcentaje`:     Aplica el porcentaje directamente al monto proveído.
+     * - `monto_fijo`:     Retorna el valor fijo independientemente del monto base.
      */
     public function calcularMonto(float $totalConIva): float
     {
@@ -86,7 +94,7 @@ class Retencion extends Model
         return round((float) $this->monto_fijo, 2);
     }
 
-    /** Etiqueta legible para el tipo */
+    /** Etiqueta legible para el tipo de retención en la UI */
     public function getTipoLabelAttribute(): string
     {
         return match($this->tipo) {
@@ -103,7 +111,7 @@ class Retencion extends Model
         return $this->activo ? 'badge-active' : 'badge-danger';
     }
 
-    /** Array de opciones de módulos disponibles */
+    /** Array de opciones de módulos disponibles (Diccionario para UI) */
     public static function modulosDisponibles(): array
     {
         return [

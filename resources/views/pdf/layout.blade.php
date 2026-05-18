@@ -93,9 +93,12 @@
 <!-- ENCABEZADO INSTITUCIONAL -->
 <div class="header">
   <div class="header-inner">
+    <div class="header-logo">
+      <img src="{{ public_path('images/logo-cep.png') }}" alt="Logo CEP">
+    </div>
     <div class="header-info">
       <div class="inst-name">Contraloría del Estado Portuguesa</div>
-      <div class="inst-sub">Sistema de Administración Integrado (SIA) · República Bolivariana de Venezuela</div>
+      <div class="inst-sub">Sistema Administrativo CEP · República Bolivariana de Venezuela</div>
     </div>
     <div class="header-right">
       <div class="doc-tipo">@yield('doc-tipo')</div>
@@ -110,7 +113,7 @@
 
 <!-- PIE DE PÁGINA -->
 <div class="footer">
-  SIA · Contraloría del Estado Portuguesa · Documento generado el {{ now()->translatedFormat('d \d\e F \d\e Y \a \l\a\s H:i') }} · Confidencial
+  CEP · Contraloría del Estado Portuguesa · Documento generado el {{ now()->translatedFormat('d \d\e F \d\e Y \a \l\a\s H:i') }} · Confidencial
 </div>
 
 </body>

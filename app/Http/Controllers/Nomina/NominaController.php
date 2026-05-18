@@ -11,15 +11,26 @@ use App\Models\MovimientoPartida;
 use App\Models\Nomina;
 use App\Models\NominaDetalle;
 use App\Models\PartidaPresupuestaria;
+use App\Services\CatalogoCache;
 use App\Traits\GuardaRetenciones;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Generación y Pago de Nómina
+ * 
+ * Centraliza la lógica financiera del talento humano.
+ * Operaciones clave:
+ * 1. Cálculo Masivo: Offloaded a `CalcularNominaJob` vía Queues para evitar timeouts.
+ * 2. Transacción de Pago: Operación atómica que asegura que el pago de la nómina
+ *    debilite instantáneamente el saldo de la Partida Presupuestaria asignada.
+ */
 class NominaController extends Controller implements HasMiddleware
 {
     use GuardaRetenciones;
+    
     public static function middleware(): array
     {
         return [
@@ -30,16 +41,18 @@ class NominaController extends Controller implements HasMiddleware
             new Middleware('can:nomina.anular', only: ['anular']),
         ];
     }
+    
+    /**
+     * Bandeja principal de corridas de nómina con filtros por estado.
+     */
     public function index(Request $request)
     {
-        $ejercicioId = session('ejercicio_id');
-
         $nominas = Nomina::with(['ejercicioFiscal', 'creadoPor'])
-            ->when($ejercicioId, fn($q) => $q->where('ejercicio_fiscal_id', $ejercicioId))
             ->when($request->estado,      fn($q, $v) => $q->where('estado', $v))
             ->when($request->tipo_nomina, fn($q, $v) => $q->where('tipo_nomina', $v))
             ->orderByDesc('id')
             ->paginate(20)->withQueryString();
+            
         return view('nomina.nominas.index', compact('nominas'));
     }
 
@@ -48,12 +61,16 @@ class NominaController extends Controller implements HasMiddleware
         $ejercicio = session('ejercicio_id')
             ? \App\Models\EjercicioFiscal::find(session('ejercicio_id'))
             : EjercicioFiscal::where('estado', 'activo')->first();
-        $partidas = PartidaPresupuestaria::where('activo', true)
-            ->orderBy('codigo')
-            ->get();
+            
+        $partidas = CatalogoCache::partidas();
         return view('nomina.nominas.create', compact('ejercicio', 'partidas'));
     }
 
+    /**
+     * Genera la corrida salarial.
+     * El cálculo real se delega a un Job en background (Queue) debido a
+     * la intensidad de iterar sobre todos los empleados y conceptos activos.
+     */
     public function store(StoreNominaRequest $request)
     {
         $idsRetenciones = $request->input('retenciones', []);
@@ -76,17 +93,12 @@ class NominaController extends Controller implements HasMiddleware
             ]);
         });
 
-        // Calcular de forma síncrona (no requiere queue worker)
-        CalcularNominaJob::dispatchSync($nomina);
-
-        // Guardar retenciones con el total_neto ya calculado por el Job
-        if (!empty($idsRetenciones)) {
-            $nomina->refresh(); // trae el total_neto actualizado
-            $this->guardarRetenciones($nomina, $idsRetenciones, (float) $nomina->total_neto);
-        }
+        // Calcular en segundo plano (queue worker procesa el job)
+        // Las retenciones se aplican dentro del Job, después del cálculo del total_neto
+        CalcularNominaJob::dispatch($nomina, $idsRetenciones);
 
         return redirect()->route('nomina.nominas.show', $nomina)
-            ->with('success', 'Nómina creada y calculada correctamente.');
+            ->with('info', 'Nómina creada. El cálculo se está procesando en segundo plano — recarga en unos segundos para ver los resultados.');
     }
 
     private function calcularNomina(Nomina $nomina): void
@@ -144,12 +156,13 @@ class NominaController extends Controller implements HasMiddleware
     public function show(Nomina $nomina)
     {
         $nomina->load(['ejercicioFiscal', 'creadoPor', 'aprobadoPor', 'partida', 'detalles.empleado.cargo']);
-        $partidas = PartidaPresupuestaria::where('activo', true)
-            ->orderBy('codigo')
-            ->get();
+        $partidas = CatalogoCache::partidas();
         return view('nomina.nominas.show', compact('nomina', 'partidas'));
     }
 
+    /**
+     * Da el visto bueno administrativo antes del pago.
+     */
     public function aprobar(Nomina $nomina)
     {
         abort_if($nomina->estado !== 'calculada', 403, 'Solo se pueden aprobar nóminas calculadas.');
@@ -157,6 +170,12 @@ class NominaController extends Controller implements HasMiddleware
         return back()->with('success', 'Nómina aprobada correctamente.');
     }
 
+    /**
+     * Lógica Financiera Crítica (Transacción Atómica):
+     * Vincula el módulo de Nómina con el Módulo de Presupuesto.
+     * Descuenta el total_neto directamente del 'saldo_actual' de la partida
+     * y registra el movimiento de gasto. Si no hay saldo, la DB hace rollback.
+     */
     public function pagar(Request $request, Nomina $nomina)
     {
         abort_if($nomina->estado !== 'aprobada', 403, 'Solo se pueden pagar nóminas aprobadas.');
@@ -172,6 +191,7 @@ class NominaController extends Controller implements HasMiddleware
             $monto    = (float) $nomina->total_neto;
             $saldoAnt = (float) $partida->saldo_actual;
 
+            // Validación estricta de disponibilidad presupuestaria
             if ($monto > $saldoAnt) {
                 throw new \Exception(
                     'Saldo insuficiente en la partida. Disponible: Bs. ' . number_format($saldoAnt, 2) .
@@ -180,8 +200,11 @@ class NominaController extends Controller implements HasMiddleware
             }
 
             $saldoPost = $saldoAnt - $monto;
+            
+            // Deducción del saldo de la partida
             $partida->decrement('saldo_actual', $monto);
 
+            // Registro histórico del gasto
             MovimientoPartida::create([
                 'numero'                    => MovimientoPartida::generarNumero(now()->year),
                 'partida_presupuestaria_id' => $partida->id,

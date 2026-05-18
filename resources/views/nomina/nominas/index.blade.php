@@ -2,10 +2,16 @@
 @section('title', 'Nóminas')
 @section('breadcrumb')
     <span>Nómina y Personal</span>
-    <i class="fa-solid fa-chevron-right" style="font-size:9px;opacity:.5"></i>
+    <span class="breadcrumb-sep">›</span>
     <span class="current">Nóminas</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE NÓMINAS
+  Bandeja de entrada del ciclo salarial (Generación, Aprobación y Pago de nóminas).
+--}}
+
 <div class="page-header fade-up">
     <h1 class="page-title">Nóminas</h1>
     <p class="page-subtitle">Cálculo y aprobación de nóminas de personal</p>
@@ -24,7 +30,10 @@
                     @foreach(['ordinaria','vacacional','utilidades','bono','liquidacion'] as $t)<option value="{{ $t }}" {{ request('tipo_nomina')==$t?'selected':'' }}>{{ ucfirst($t) }}</option>@endforeach
                 </select>
             </form>
+            
+            @can('nomina.crear')
             <a href="{{ route('nomina.nominas.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nueva Nómina</a>
+            @endcan
         </div>
     </div>
     <div class="table-wrap">
@@ -40,7 +49,11 @@
                 <td style="color:var(--accent-danger);">Bs. {{ number_format($n->total_deducciones,2) }}</td>
                 <td style="font-weight:800;color:var(--accent-3);">Bs. {{ number_format($n->total_neto,2) }}</td>
                 <td><span class="badge {{ $n->estadoBadge() }}">{{ ucfirst($n->estado) }}</span></td>
-                <td><a href="{{ route('nomina.nominas.show', $n) }}" class="btn btn-outline btn-sm">Ver</a></td>
+                <td>
+                    @can('nomina.ver')
+                    <a href="{{ route('nomina.nominas.show', $n) }}" class="btn btn-outline btn-sm">Ver</a>
+                    @endcan
+                </td>
             </tr>
             @empty
             <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-title">Sin nóminas registradas</div></div></td></tr>
@@ -48,6 +61,7 @@
             </tbody>
         </table>
     </div>
-    @if($nominas->hasPages())<div class="pagination">{{ $nominas->links() }}</div>@endif
+    
+    <x-pagination :paginator="$nominas" />
 </div>
 @endsection

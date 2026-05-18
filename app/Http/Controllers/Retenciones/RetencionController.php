@@ -7,8 +7,18 @@ use App\Models\Retencion;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
+/**
+ * Controlador del Catálogo de Retenciones Fiscales
+ * 
+ * Configura los impuestos legales exigidos por el marco normativo
+ * (ISLR, IVA, Fiel Cumplimiento, Timbre Fiscal, etc.).
+ * La integridad de datos se asegura evitando eliminar retenciones que
+ * ya hayan sido usadas en causaciones o pagos históricos (usando soft deletes 
+ * o bloqueo de eliminación).
+ */
 class RetencionController extends Controller
 {
+    /** Muestra el catálogo de retenciones ordenado por estado y código. */
     public function index()
     {
         $this->authorize('retenciones.ver');
@@ -28,6 +38,7 @@ class RetencionController extends Controller
         return view('retenciones.create', compact('modulosDisponibles'));
     }
 
+    /** Almacena una nueva retención fiscal, asegurando la consistencia del tipo y alícuota. */
     public function store(Request $request)
     {
         $this->authorize('retenciones.crear');
@@ -75,6 +86,11 @@ class RetencionController extends Controller
         return view('retenciones.edit', compact('retencion', 'modulosDisponibles'));
     }
 
+    /** 
+     * Actualiza la configuración de la retención.
+     * Nota: Modificar el valor no alterará las causaciones previas que ya aplicaron
+     * el histórico de este porcentaje.
+     */
     public function update(Request $request, Retencion $retencion)
     {
         $this->authorize('retenciones.editar');
@@ -118,7 +134,7 @@ class RetencionController extends Controller
         return back()->with('success', "Retención {$estado} correctamente.");
     }
 
-    /** Elimina una retención si no tiene usos registrados */
+    /** Elimina una retención si no tiene usos registrados en transacciones (Causación, etc.) */
     public function destroy(Retencion $retencion)
     {
         $this->authorize('retenciones.editar');

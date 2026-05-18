@@ -7,12 +7,23 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA PRINCIPAL (DASHBOARD)
+  Esta vista es el punto de entrada al sistema. 
+  Consume las variables enviadas desde el DashboardController (__invoke).
+  Muestra un resumen en tiempo real del estado financiero y operativo de la Contraloría.
+--}}
+
 <div class="page-header fade-up">
     <h1 class="page-title">Panel de Control</h1>
     <p class="page-subtitle">Bienvenido, {{ auth()->user()->name }} · {{ now()->translatedFormat('l, d \d\e F \d\e Y') }}</p>
 </div>
 
 {{-- ── Fila 1: Alertas operativas ─────────────────────────────────── --}}
+{{-- 
+  Estas alertas solo se muestran si hay tareas pendientes (Causaciones, Órdenes o Nóminas en borrador).
+  Actúan como notificaciones push dentro de la interfaz para llamar la atención del administrador.
+--}}
 @if($causacionesPendientes > 0 || $ordenesPendientes > 0 || $nominasPendientes > 0)
 <div class="fade-up" style="margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;">
     @if($causacionesPendientes > 0)
@@ -37,6 +48,7 @@
 @endif
 
 {{-- ── Fila 2: KPI Cards ─────────────────────────────────────────── --}}
+{{-- Tarjetas de Indicadores Clave. Muestran los contadores principales del sistema. --}}
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
 
     {{-- Ejercicio Activo --}}
@@ -140,6 +152,10 @@
 </div>
 
 {{-- ── Fila 4: Monitor del Servidor (solo admins) ─────────────────── --}}
+{{-- 
+  Esta sección realiza consultas asíncronas (AJAX) mediante JS a la ruta server.stats.
+  Solo los usuarios con permisos de gestión de roles (Administradores) pueden verla.
+--}}
 @canany(['roles.gestionar','roles.ver'])
 <div style="margin-top:20px" class="fade-up" id="server-monitor-section">
     <div class="card">
@@ -387,6 +403,7 @@ setInterval(fetchStats, 8000);
 <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;" class="fade-up">
 
     {{-- Últimas causaciones pendientes --}}
+    {{-- Muestra un listado rápido de las últimas 5 causaciones generadas para revisión --}}
     <div class="card" style="animation-delay:.15s">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent);margin-right:8px;"></i>Causaciones Recientes</div>
@@ -424,6 +441,7 @@ setInterval(fetchStats, 8000);
     </div>
 
     {{-- Accesos rápidos --}}
+    {{-- Botones de acción directa basados en los permisos del usuario activo --}}
     <div class="card" style="animation-delay:.2s">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-bolt" style="color:var(--accent-warn);margin-right:8px;"></i>Accesos Rápidos</div>

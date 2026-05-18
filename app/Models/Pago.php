@@ -5,9 +5,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
+use App\Traits\FiltraPorEjercicio;
+
+/**
+ * Modelo de Pago (Instrucción y Ejecución de Pago)
+ * 
+ * El Pago representa la tercera y última etapa de la ejecución presupuestaria
+ * (Compromiso -> Causación -> Pago).
+ * Consiste en la extinción total o parcial de la deuda adquirida en la Causación.
+ * Registra los datos de tesorería: banco, cuenta, tipo de pago (transferencia, cheque)
+ * y el número de referencia bancaria de la transacción.
+ */
 class Pago extends Model implements Auditable
 {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
     use \OwenIt\Auditing\Auditable;
 
     protected $table = 'pagos';
@@ -27,17 +38,25 @@ class Pago extends Model implements Auditable
         ];
     }
 
+    // ── Relaciones ────────────────────────────────────────────────
+
+    /** Causación u Orden de Pago que origina este desembolso */
     public function causacion()       { return $this->belongsTo(Causacion::class); }
     public function ordenPago()       { return $this->belongsTo(OrdenPago::class); }
+    
     public function ejercicioFiscal() { return $this->belongsTo(EjercicioFiscal::class); }
     public function unidadEjecutora() { return $this->belongsTo(UnidadEjecutora::class); }
     public function creadoPor()       { return $this->belongsTo(User::class, 'created_by'); }
+    
+    /** Retenciones asociadas a este pago (Ej: ISLR pagado al Fisco) */
     public function retenciones()     { return $this->morphMany(RetencionAplicada::class, 'retencionable'); }
 
     public function totalRetenciones(): float
     {
         return (float) $this->retenciones->sum('monto_retenido');
     }
+
+    // ── Helpers de Estado ────────────────────────────────────────
 
     public function esPendiente(): bool  { return $this->estado === 'pendiente'; }
     public function esProcesado(): bool  { return $this->estado === 'procesado'; }
@@ -69,6 +88,9 @@ class Pago extends Model implements Auditable
         };
     }
 
+    /**
+     * Genera el número correlativo anual: PAG-2026-0001
+     */
     public static function generarNumero(int $anio): string {
         do {
             $ultimo = static::whereYear('created_at', $anio)

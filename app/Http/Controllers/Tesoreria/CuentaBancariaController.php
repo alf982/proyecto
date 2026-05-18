@@ -8,6 +8,19 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
+/**
+ * Controlador de Cuentas Bancarias (Tesorería)
+ * 
+ * Gestiona el catálogo de cuentas bancarias de la institución.
+ * Este submódulo es clave para la conciliación bancaria, ya que 
+ * conecta la ejecución presupuestaria (Partidas) con la realidad 
+ * financiera en bancos (Saldos líquidos).
+ * 
+ * Responsabilidades:
+ * - Registro y edición de cuentas (Corriente, Ahorro, Fondos de Terceros).
+ * - Seguimiento del saldo_actual (Que se afecta con los Pagos y Depósitos).
+ * - Vinculación con Ejercicios Fiscales y Partidas Presupuestarias.
+ */
 class CuentaBancariaController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -18,6 +31,11 @@ class CuentaBancariaController extends Controller implements HasMiddleware
             new Middleware('can:tesoreria.cuentas.editar', only: ['edit', 'update', 'destroy']),
         ];
     }
+    
+    /**
+     * Muestra el listado de cuentas bancarias.
+     * Muestra indicadores de Saldo Total y vinculación con partidas.
+     */
     public function index(Request $request)
     {
         $cuentas = CuentaBancaria::with(['ejercicioFiscal'])
@@ -76,6 +94,10 @@ class CuentaBancariaController extends Controller implements HasMiddleware
             ->with('success', 'Cuenta bancaria registrada correctamente.');
     }
 
+    /**
+     * Vista de detalle de la cuenta.
+     * Muestra los últimos movimientos financieros y las partidas presupuestarias fondeadas por esta cuenta.
+     */
     public function show(CuentaBancaria $cuenta)
     {
         $cuenta->load([

@@ -7,10 +7,17 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA INDEX DE CAUSACIONES
+  Muestra el listado del gasto devengado.
+  Incluye una "Bandeja de Entrada" en la parte superior para que los usuarios con permisos
+  de aprobación puedan procesar rápidamente las causaciones que acaban de crearse en estado "borrador".
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div>
         <h1 class="page-title">Causaciones / Órdenes de Pago</h1>
-        <p class="page-subtitle">Registro de compromisos y órdenes de pago emitidas</p>
+        <p class="page-subtitle">Registro de compromisos causados y órdenes de pago emitidas</p>
     </div>
     @can('causaciones.crear')
     <a href="{{ route('presupuesto.causaciones.create') }}" class="btn btn-primary">
@@ -18,6 +25,76 @@
     </a>
     @endcan
 </div>
+
+@if(session('success'))
+<div class="alert alert-success fade-up"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>
+@endif
+@if(session('error'))
+<div class="alert alert-danger fade-up"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>
+@endif
+
+{{-- ── CAUSACIONES PENDIENTES DE APROBACIÓN (Bandeja de entrada) --}}
+@if($causacionesPendientes->count())
+<div class="card fade-up" style="margin-bottom:20px;border:1px solid rgba(247,187,67,0.35);">
+    <div class="card-header" style="background:rgba(247,187,67,0.07);">
+        <div class="card-title" style="color:var(--accent-warn);">
+            <i class="fa-solid fa-clock" style="margin-right:8px;"></i>
+            Causaciones pendientes de aprobación ({{ $causacionesPendientes->count() }})
+        </div>
+    </div>
+    <div class="card-body" style="padding:0;">
+        <table class="table" style="margin:0;">
+            <thead>
+                <tr>
+                    <th>N°</th>
+                    <th>Fecha</th>
+                    <th>Compromiso</th>
+                    <th>Beneficiario</th>
+                    <th style="max-width:180px;">Concepto</th>
+                    <th style="text-align:right;">Monto</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($causacionesPendientes as $cp)
+                <tr>
+                    <td><code style="color:var(--accent);font-weight:700;">{{ $cp->numero }}</code></td>
+                    <td style="font-size:12px;color:var(--text-secondary);">{{ $cp->fecha_causacion?->format('d/m/Y') ?? '—' }}</td>
+                    <td><code style="font-size:11px;color:var(--accent);">{{ $cp->compromiso?->numero ?? '—' }}</code></td>
+                    <td style="font-size:13px;font-weight:600;">{{ $cp->beneficiario }}</td>
+                    <td style="font-size:12px;color:var(--text-secondary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        {{ $cp->concepto }}
+                    </td>
+                    <td style="text-align:right;font-weight:700;font-family:monospace;font-size:14px;color:var(--accent-3);">
+                        Bs. {{ number_format((float)$cp->monto_causado, 2) }}
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex;gap:6px;justify-content:flex-end;">
+                            @can('causaciones.ver')
+                            <a href="{{ route('presupuesto.causaciones.show', $cp) }}" class="btn btn-sm btn-outline" title="Ver">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            @endcan
+                            
+                            @can('causaciones.aprobar')
+                            <form method="POST" action="{{ route('presupuesto.causaciones.aprobar', $cp) }}" style="margin:0;"
+                                  onsubmit="return confirm('¿Aprobar causación? Esto indicará que el devengado es definitivo.');">
+                                @csrf
+                                <button type="submit" class="btn btn-sm"
+                                    style="background:rgba(247,187,67,0.15);border:1px solid rgba(247,187,67,.4);color:var(--accent-warn);white-space:nowrap;">
+                                    <i class="fa-solid fa-check"></i> Aprobar
+                                </button>
+                            </form>
+                            @endcan
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 <!-- Filtros -->
 <div class="card fade-up" style="margin-bottom:20px;">
@@ -85,7 +162,7 @@
             </thead>
             <tbody>
                 @forelse($q as $causacion)
-                <tr>
+                <tr style="{{ $causacion->estado === 'anulada' ? 'opacity:.6;' : '' }}">
                     <td>
                         <code style="background:rgba(79,142,247,0.1);color:var(--accent);padding:3px 8px;border-radius:5px;font-size:12px;font-weight:600;">
                             {{ $causacion->numero }}
@@ -121,9 +198,12 @@
                     </td>
                     <td style="text-align:right;">
                         <div style="display:flex;gap:6px;justify-content:flex-end;">
+                            @can('causaciones.ver')
                             <a href="{{ route('presupuesto.causaciones.show', $causacion) }}" class="btn btn-outline btn-sm" title="Ver detalle">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
+                            @endcan
+                            
                             @if($causacion->esBorrador())
                             @can('causaciones.crear')
                             <a href="{{ route('presupuesto.causaciones.edit', $causacion) }}" class="btn btn-outline btn-sm" title="Editar">
@@ -146,13 +226,8 @@
             </tbody>
         </table>
     </div>
-    @if($q->hasPages())
-    <div class="pagination">
-        @foreach($q->links()->elements[0] as $page => $url)
-            <a href="{{ $url }}" class="page-link {{ $q->currentPage() == $page ? 'active' : '' }}">{{ $page }}</a>
-        @endforeach
-        <span class="page-info">{{ $q->firstItem() }}–{{ $q->lastItem() }} de {{ $q->total() }}</span>
-    </div>
-    @endif
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

@@ -4,9 +4,17 @@
     <span>Compras</span><span class="breadcrumb-sep">›</span><span class="current">Almacenes</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE ALMACENES
+  Muestra el listado de ubicaciones físicas o virtuales de inventario.
+--}}
+
 <div class="page-header">
     <div><h1 class="page-title">Almacenes</h1><p class="page-subtitle">Registro de almacenes institucionales</p></div>
+    @can('compras.almacenes.crear')
     <a href="{{ route('compras.almacenes.create') }}" class="btn btn-primary">＋ Nuevo Almacén</a>
+    @endcan
 </div>
 @include('components.alert')
 <div class="card">
@@ -18,13 +26,21 @@
                 <tr>
                     <td><code>{{ $a->codigo }}</code></td>
                     <td style="font-weight:600">
+                        @can('compras.almacenes.ver')
                         <a href="{{ route('compras.almacenes.show', $a) }}" style="color:var(--primary)">{{ $a->nombre }}</a>
+                        @else
+                        {{ $a->nombre }}
+                        @endcan
                     </td>
                     <td style="color:var(--text-muted);font-size:.85rem">{{ $a->ubicacion ?? '—' }}</td>
                     <td style="font-size:.85rem">{{ $a->responsable ?? '—' }}</td>
                     <td style="text-align:center"><span style="font-weight:600">{{ $a->articulos_count }}</span></td>
                     <td><span class="badge {{ $a->activo?'badge-active':'badge-inactive' }}">{{ $a->activo?'Activo':'Inactivo' }}</span></td>
-                    <td><a href="{{ route('compras.almacenes.edit',$a) }}" class="btn-icon" title="Editar">✏️</a></td>
+                    <td>
+                        @can('compras.almacenes.editar')
+                        <a href="{{ route('compras.almacenes.edit',$a) }}" class="btn-icon" title="Editar">✏️</a>
+                        @endcan
+                    </td>
                 </tr>
                 @empty
                 <tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted)">No hay almacenes. <a href="{{ route('compras.almacenes.create') }}">Crear primero</a></td></tr>

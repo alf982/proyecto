@@ -7,12 +7,21 @@ use App\Models\Empleado;
 use App\Models\EmpleadoFamiliar;
 use App\Models\EmpleadoFormacion;
 use App\Models\EmpleadoHistorialCargo;
+use App\Models\EmpleadoBonificacion;
+use App\Models\ConceptoNomina;
 use App\Models\UnidadEjecutora;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controlador de Expediente de Empleados
+ * 
+ * Gestiona la ficha técnica completa del trabajador.
+ * Asegura la correcta asignación de cargo, tipo de nómina y estado laboral,
+ * parámetros que son leídos directamente por el motor de cálculo de nómina.
+ */
 class EmpleadoController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -25,11 +34,16 @@ class EmpleadoController extends Controller implements HasMiddleware
                 'addFamiliar', 'deleteFamiliar',
                 'addHistorial', 'deleteHistorial',
                 'addFormacion', 'deleteFormacion',
+                'addBonificacion', 'deleteBonificacion',
             ]),
         ];
     }
 
     // ── LISTADO ───────────────────────────────────────────────────
+    
+    /**
+     * Muestra la nómina (listado) de empleados con filtros operativos.
+     */
     public function index(Request $request)
     {
         $empleados = Empleado::with(['cargo', 'unidadEjecutora'])
@@ -37,10 +51,11 @@ class EmpleadoController extends Controller implements HasMiddleware
             ->when($request->tipo,   fn($q, $v) => $q->where('tipo', $v))
             ->when($request->search, fn($q, $v) => $q->where(
                 fn($q) => $q->where('cedula', 'like', "%$v%")
-                             ->orWhere('nombre', 'like', "%$v%")
-                             ->orWhere('apellido', 'like', "%$v%")
+                             ->orWhere('nombres', 'like', "%$v%")
+                             ->orWhere('primer_apellido', 'like', "%$v%")
+                             ->orWhere('segundo_apellido', 'like', "%$v%")
             ))
-            ->orderBy('apellido')
+            ->orderBy('primer_apellido')
             ->paginate(25)->withQueryString();
 
         return view('nomina.empleados.index', compact('empleados'));
@@ -55,12 +70,21 @@ class EmpleadoController extends Controller implements HasMiddleware
     }
 
     // ── GUARDAR ───────────────────────────────────────────────────
+    
+    /**
+     * Registra un nuevo empleado en el sistema.
+     * Al ser creado, automáticamente entra al universo de empleados elegibles
+     * para la generación de nómina si su estado es 'activo'.
+     */
     public function store(Request $request)
     {
         $request->validate([
             'cedula'              => 'required|unique:empleados,cedula|max:15',
-            'nombre'              => 'required|string|max:100',
-            'apellido'            => 'required|string|max:100',
+            'pasaporte'           => 'nullable|max:30',
+            'nombres'             => 'required|string|max:100',
+            'primer_apellido'     => 'required|string|max:100',
+            'segundo_apellido'    => 'nullable|string|max:100',
+            'sexo'                => 'required|in:F,M',
             'cargo_id'            => 'required|exists:cargos,id',
             'unidad_ejecutora_id' => 'required|exists:unidades_ejecutoras,id',
             'fecha_ingreso'       => 'required|date',
@@ -69,26 +93,36 @@ class EmpleadoController extends Controller implements HasMiddleware
             'nivel_instruccion'   => 'nullable|in:sin_instruccion,primaria,secundaria,tsu,universitario,postgrado,doctorado',
             'estado_civil'        => 'nullable|in:soltero,casado,divorciado,viudo,concubinato',
             'curriculum'          => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+            'carnet_militar_foto' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
         ]);
 
         $data = $request->only([
-            'cedula','nombre','apellido','cargo_id','unidad_ejecutora_id',
+            'cedula','pasaporte','nombres','primer_apellido','segundo_apellido','sexo','cargo_id','unidad_ejecutora_id',
             'fecha_ingreso','tipo','banco','numero_cuenta','telefono','email','observaciones',
-            'estado_civil','nacionalidad','fecha_nacimiento','lugar_nacimiento',
+            'estado_civil','nacionalidad','pais_origen','numero_carnet_militar','fecha_expedicion_militar',
+            'fecha_nacimiento','lugar_nacimiento','pais_nacimiento','estado_nacimiento','municipio_nacimiento',
             'nivel_instruccion','titulo','institucion_educativa',
-            'estado_residencia','municipio','parroquia','direccion_completa',
+            'pais_residencia','estado_residencia','municipio','parroquia','direccion_completa',
+            'anos_experiencia_publica','meses_experiencia_publica','anos_experiencia_privada','meses_experiencia_privada','anos_experiencia_independiente','meses_experiencia_independiente',
             // Salud
             'tipo_sangre','tipo_discapacidad','condicion_medica',
             // Contacto emergencia
             'contacto_emergencia_nombre','contacto_emergencia_parentesco','contacto_emergencia_telefono',
         ]);
+
         $data['tiene_discapacidad'] = $request->boolean('tiene_discapacidad');
+        $data['inhabilitado'] = $request->boolean('inhabilitado');
         $data['estado']     = 'activo';
         $data['creado_por'] = auth()->id();
 
         if ($request->hasFile('curriculum')) {
             $data['curriculum_path'] = $request->file('curriculum')
                 ->store('empleados_cv', 'local');
+        }
+
+        if ($request->hasFile('carnet_militar_foto')) {
+            $data['carnet_militar_foto_path'] = $request->file('carnet_militar_foto')
+                ->store('empleados_militar', 'local');
         }
 
         Empleado::create($data);
@@ -105,11 +139,13 @@ class EmpleadoController extends Controller implements HasMiddleware
             'historialCargos.cargo',
             'historialCargos.unidadEjecutora',
             'formaciones',
+            'bonificaciones.concepto',
         ]);
-        $cargos   = Cargo::activos()->orderBy('nombre')->get();
-        $unidades = UnidadEjecutora::where('activo', true)->orderBy('nombre')->get();
+        $cargos    = Cargo::activos()->orderBy('nombre')->get();
+        $unidades  = UnidadEjecutora::where('activo', true)->orderBy('nombre')->get();
+        $conceptos = ConceptoNomina::activos()->orderBy('nombre')->get();
 
-        return view('nomina.empleados.show', compact('empleado', 'cargos', 'unidades'));
+        return view('nomina.empleados.show', compact('empleado', 'cargos', 'unidades', 'conceptos'));
     }
 
     // ── EDITAR ────────────────────────────────────────────────────
@@ -125,8 +161,11 @@ class EmpleadoController extends Controller implements HasMiddleware
     {
         $request->validate([
             'cedula'              => 'required|max:15|unique:empleados,cedula,' . $empleado->id,
-            'nombre'              => 'required|string|max:100',
-            'apellido'            => 'required|string|max:100',
+            'pasaporte'           => 'nullable|max:30',
+            'nombres'             => 'required|string|max:100',
+            'primer_apellido'     => 'required|string|max:100',
+            'segundo_apellido'    => 'nullable|string|max:100',
+            'sexo'                => 'required|in:F,M',
             'cargo_id'            => 'required|exists:cargos,id',
             'unidad_ejecutora_id' => 'required|exists:unidades_ejecutoras,id',
             'fecha_ingreso'       => 'required|date',
@@ -136,21 +175,26 @@ class EmpleadoController extends Controller implements HasMiddleware
             'nivel_instruccion'   => 'nullable|in:sin_instruccion,primaria,secundaria,tsu,universitario,postgrado,doctorado',
             'estado_civil'        => 'nullable|in:soltero,casado,divorciado,viudo,concubinato',
             'curriculum'          => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+            'carnet_militar_foto' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
         ]);
 
         $data = $request->only([
-            'cedula','nombre','apellido','cargo_id','unidad_ejecutora_id',
+            'cedula','pasaporte','nombres','primer_apellido','segundo_apellido','sexo','cargo_id','unidad_ejecutora_id',
             'fecha_ingreso','tipo','banco','numero_cuenta','telefono','email',
             'estado','fecha_egreso','observaciones',
-            'estado_civil','nacionalidad','fecha_nacimiento','lugar_nacimiento',
+            'estado_civil','nacionalidad','pais_origen','numero_carnet_militar','fecha_expedicion_militar',
+            'fecha_nacimiento','lugar_nacimiento','pais_nacimiento','estado_nacimiento','municipio_nacimiento',
             'nivel_instruccion','titulo','institucion_educativa',
-            'estado_residencia','municipio','parroquia','direccion_completa',
+            'pais_residencia','estado_residencia','municipio','parroquia','direccion_completa',
+            'anos_experiencia_publica','meses_experiencia_publica','anos_experiencia_privada','meses_experiencia_privada','anos_experiencia_independiente','meses_experiencia_independiente',
             // Salud
             'tipo_sangre','tipo_discapacidad','condicion_medica',
             // Contacto emergencia
             'contacto_emergencia_nombre','contacto_emergencia_parentesco','contacto_emergencia_telefono',
         ]);
+        
         $data['tiene_discapacidad'] = $request->boolean('tiene_discapacidad');
+        $data['inhabilitado'] = $request->boolean('inhabilitado');
 
         if ($request->hasFile('curriculum')) {
             // Eliminar CV anterior si existe
@@ -159,6 +203,15 @@ class EmpleadoController extends Controller implements HasMiddleware
             }
             $data['curriculum_path'] = $request->file('curriculum')
                 ->store('empleados_cv', 'local');
+        }
+
+        if ($request->hasFile('carnet_militar_foto')) {
+            // Eliminar foto anterior si existe
+            if ($empleado->carnet_militar_foto_path) {
+                Storage::disk('local')->delete($empleado->carnet_militar_foto_path);
+            }
+            $data['carnet_militar_foto_path'] = $request->file('carnet_militar_foto')
+                ->store('empleados_militar', 'local');
         }
 
         $empleado->update($data);
@@ -177,6 +230,19 @@ class EmpleadoController extends Controller implements HasMiddleware
         $ext    = pathinfo($empleado->curriculum_path, PATHINFO_EXTENSION);
 
         return Storage::disk('local')->download($empleado->curriculum_path, $nombre . '.' . $ext);
+    }
+
+    // ── DESCARGAR CARNET MILITAR ───────────────────────────────────
+    public function downloadCarnetMilitar(Empleado $empleado)
+    {
+        if (!$empleado->carnet_militar_foto_path || !Storage::disk('local')->exists($empleado->carnet_militar_foto_path)) {
+            return back()->with('error', 'No hay foto de carnet militar registrada para este empleado.');
+        }
+
+        $nombre = 'CarnetMilitar_' . str_replace(' ', '_', $empleado->nombre_completo) . '_' . $empleado->cedula;
+        $ext    = pathinfo($empleado->carnet_militar_foto_path, PATHINFO_EXTENSION);
+
+        return Storage::disk('local')->download($empleado->carnet_militar_foto_path, $nombre . '.' . $ext);
     }
 
     // ── FAMILIARES ────────────────────────────────────────────────
@@ -218,24 +284,15 @@ class EmpleadoController extends Controller implements HasMiddleware
     public function addHistorial(Request $request, Empleado $empleado)
     {
         $request->validate([
-            'cargo_id'           => 'nullable|exists:cargos,id',
-            'cargo_texto'        => 'nullable|string|max:200',
-            'institucion'        => 'nullable|string|max:200',
+            'cargo_id'           => 'required|exists:cargos,id',
             'unidad_ejecutora_id'=> 'nullable|exists:unidades_ejecutoras,id',
             'fecha_inicio'       => 'required|date',
             'fecha_fin'          => 'nullable|date|after_or_equal:fecha_inicio',
             'motivo_cambio'      => 'nullable|string|max:300',
         ]);
 
-        // Debe tener cargo_id O cargo_texto
-        if (!$request->cargo_id && !$request->cargo_texto) {
-            return back()->withErrors(['cargo_texto' => 'Indique el cargo del sistema o escriba el nombre del cargo.'])->withInput();
-        }
-
         $empleado->historialCargos()->create([
             'cargo_id'           => $request->cargo_id,
-            'cargo_texto'        => $request->cargo_texto,
-            'institucion'        => $request->institucion,
             'unidad_ejecutora_id'=> $request->unidad_ejecutora_id,
             'fecha_inicio'       => $request->fecha_inicio,
             'fecha_fin'          => $request->fecha_fin,
@@ -311,5 +368,34 @@ class EmpleadoController extends Controller implements HasMiddleware
         $nombre = 'DOC_' . str_replace(' ', '_', $formacion->nombre);
         $ext    = pathinfo($formacion->documento_path, PATHINFO_EXTENSION);
         return Storage::disk('local')->download($formacion->documento_path, $nombre . '.' . $ext);
+    }
+
+    // ── BONIFICACIONES / CONCEPTOS INDIVIDUALES ───────────────────
+    public function addBonificacion(Request $request, Empleado $empleado)
+    {
+        $request->validate([
+            'concepto_nomina_id' => 'required|exists:conceptos_nomina,id',
+            'monto'              => 'nullable|numeric|min:0',
+            'observaciones'      => 'nullable|string|max:300',
+        ]);
+
+        $empleado->bonificaciones()->create([
+            'concepto_nomina_id' => $request->concepto_nomina_id,
+            'monto'              => $request->monto,
+            'observaciones'      => $request->observaciones,
+            'activo'             => true,
+            'registrado_por'     => auth()->id(),
+        ]);
+
+        return redirect()->route('nomina.empleados.show', $empleado)
+            ->with('success', 'Concepto individual asignado correctamente al trabajador.');
+    }
+
+    public function deleteBonificacion(Empleado $empleado, EmpleadoBonificacion $bonificacion)
+    {
+        abort_unless($bonificacion->empleado_id === $empleado->id, 403);
+        $bonificacion->delete();
+        return redirect()->route('nomina.empleados.show', $empleado)
+            ->with('success', 'Concepto individual retirado.');
     }
 }

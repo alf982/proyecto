@@ -1,5 +1,6 @@
 <?php
 namespace App\Http\Controllers\Compras;
+
 use App\Http\Controllers\Controller;
 use App\Models\InventarioMovimiento;
 use App\Models\MovimientoPartida;
@@ -12,7 +13,16 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Recepción de Bienes (Acta de Recepción)
+ * 
+ * Se encarga de materializar la entrada al almacén de los bienes 
+ * adquiridos mediante una Orden de Compra.
+ * Almacena el acta, suma el stock en el Kardex y causa el gasto
+ * en la partida presupuestaria vinculada a la OC.
+ */
 class RecepcionController extends Controller implements HasMiddleware {
+    
     public static function middleware(): array
     {
         return [
@@ -20,6 +30,10 @@ class RecepcionController extends Controller implements HasMiddleware {
             new Middleware('can:compras.recepciones.crear', only: ['create', 'store']),
         ];
     }
+
+    /**
+     * Bandeja de actas de recepción emitidas.
+     */
     public function index(Request $request) {
         $ejercicioId = session('ejercicio_id');
 
@@ -27,9 +41,13 @@ class RecepcionController extends Controller implements HasMiddleware {
             ->when($ejercicioId, fn($q) => $q->where('ejercicio_fiscal_id', $ejercicioId))
             ->when($request->search, fn($q,$v) => $q->where(fn($q) => $q->where('numero','like',"%$v%")->orWhere('numero_factura','like',"%$v%")))
             ->when($request->estado, fn($q,$v) => $q->where('estado',$v))
-            ->orderByDesc('fecha_recepcion')->paginate(20)->withQueryString();
+            ->orderByDesc('fecha_recepcion')
+            ->paginate(20)
+            ->withQueryString();
+            
         return view('compras.recepciones.index', compact('q'));
     }
+
     public function create(Request $request) {
         $ordenes = OrdenCompra::whereIn('estado',['emitida','confirmada','en_transito'])->with('detalles.articulo')->orderByDesc('id')->get();
         $orden   = $request->orden ? OrdenCompra::with('detalles.articulo')->find($request->orden) : $ordenes->first();
@@ -54,6 +72,14 @@ class RecepcionController extends Controller implements HasMiddleware {
 
         return view('compras.recepciones.create', compact('ordenes','orden','ordenesData'));
     }
+
+    /**
+     * Registra la entrada física de bienes al almacén.
+     * Esta acción es crítica ya que:
+     * 1. Aumenta el stock en el catálogo (Articulo).
+     * 2. Registra una 'entrada' en el Kardex (InventarioMovimiento).
+     * 3. Descuenta el saldo de la Partida Presupuestaria de la OC.
+     */
     public function store(Request $request) {
         $request->validate([
             'orden_compra_id'  => 'required|exists:ordenes_compra,id',
@@ -63,28 +89,32 @@ class RecepcionController extends Controller implements HasMiddleware {
             'lineas.*.orden_detalle_id'   => 'required|exists:ordenes_compra_detalle,id',
             'lineas.*.cantidad_recibida'  => 'required|numeric|min:0',
         ]);
+
         DB::transaction(function () use ($request) {
             $orden    = OrdenCompra::with('detalles.articulo')->findOrFail($request->orden_compra_id);
             $totalRec = collect($request->lineas)->sum(fn($l) => ($l['cantidad_recibida'] ?? 0) * ($l['precio_unitario'] ?? 0));
+            
             $rec = RecepcionBienes::create([
                 'numero'             => RecepcionBienes::generarNumero(now()->year),
                 'ejercicio_fiscal_id'=> session('ejercicio_id')
                     ?? \App\Models\EjercicioFiscal::where('estado','activo')->value('id'),
                 'orden_compra_id'    => $orden->id,
-                'fecha_recepcion' => $request->fecha_recepcion,
-                'recibido_por'    => $request->recibido_por,
-                'entregado_por'   => $request->entregado_por,
-                'numero_guia'     => $request->numero_guia,
-                'numero_factura'  => $request->numero_factura,
-                'total_recibido'  => $totalRec,
-                'estado'          => $request->estado ?? 'conforme',
-                'observaciones'   => $request->observaciones,
-                'creado_por'      => auth()->id(),
+                'fecha_recepcion'    => $request->fecha_recepcion,
+                'recibido_por'       => $request->recibido_por,
+                'entregado_por'      => $request->entregado_por,
+                'numero_guia'        => $request->numero_guia,
+                'numero_factura'     => $request->numero_factura,
+                'total_recibido'     => $totalRec,
+                'estado'             => $request->estado ?? 'conforme',
+                'observaciones'      => $request->observaciones,
+                'creado_por'         => auth()->id(),
             ]);
+
             foreach ($request->lineas as $linea) {
                 $cantRec = (float)($linea['cantidad_recibida'] ?? 0);
                 if ($cantRec <= 0) continue;
-                $det     = $orden->detalles->firstWhere('id', $linea['orden_detalle_id']);
+
+                $det = $orden->detalles->firstWhere('id', $linea['orden_detalle_id']);
                 RecepcionDetalle::create([
                     'recepcion_id'       => $rec->id,
                     'orden_detalle_id'   => $det->id,
@@ -94,12 +124,15 @@ class RecepcionController extends Controller implements HasMiddleware {
                     'condicion'          => $linea['condicion'] ?? 'bueno',
                     'observacion'        => $linea['observacion'] ?? null,
                 ]);
-                // Actualizar stock del artículo
+
+                // ── 1. ACTUALIZAR STOCK Y KARDEX ──────────────────────────────
                 if ($det->articulo_id) {
                     $art   = $det->articulo;
                     $antes = $art->stock_actual;
                     $nuevo = $antes + $cantRec;
+                    
                     $art->update(['stock_actual' => $nuevo]);
+                    
                     InventarioMovimiento::create([
                         'articulo_id'    => $art->id,
                         'almacen_id'     => $art->almacen_id,
@@ -115,10 +148,12 @@ class RecepcionController extends Controller implements HasMiddleware {
                         'creado_por'     => auth()->id(),
                     ]);
                 }
+                
                 // Actualizar cantidad recibida en detalle de orden
                 $det->increment('cantidad_recibida', $cantRec);
             }
-            // ── EFECTO PRESUPUESTARIO ──────────────────────────────────────
+
+            // ── 2. EFECTO PRESUPUESTARIO (Causación del Gasto) ──────────────
             // Si la OC tiene partida asignada, descontar el monto recibido del saldo
             if ($orden->partida_presupuestaria_id && $totalRec > 0) {
                 $partida   = PartidaPresupuestaria::find($orden->partida_presupuestaria_id);
@@ -151,6 +186,7 @@ class RecepcionController extends Controller implements HasMiddleware {
 
         return redirect()->route('compras.recepciones.index')->with('success', 'Recepción registrada, stock actualizado y saldo de partida descontado.');
     }
+
     public function show(RecepcionBienes $recepcion) {
         $recepcion->load(['orden','detalles.articulo','detalles.ordenDetalle','creadoPor']);
         return view('compras.recepciones.show', compact('recepcion'));

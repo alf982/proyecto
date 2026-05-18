@@ -4,6 +4,13 @@
     <span>Compras</span><span class="breadcrumb-sep">›</span><span class="current">Solicitudes de Reabastecimiento</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE SOLICITUDES DE COMPRA
+  Bandeja de entrada para requisiciones internas.
+  Muestra una alerta rápida en caso de que existan artículos agotados o bajo mínimo.
+--}}
+
 <div class="page-header">
     <div>
         <h1 class="page-title">Solicitudes de Reabastecimiento</h1>
@@ -81,14 +88,24 @@
             <tbody>
                 @forelse($q as $sol)
                 <tr>
-                    <td><a href="{{ route('compras.solicitudes.show', $sol) }}" style="color:var(--primary);font-family:monospace;font-weight:600">{{ $sol->numero }}</a></td>
+                    <td>
+                        @can('compras.solicitudes.ver')
+                        <a href="{{ route('compras.solicitudes.show', $sol) }}" style="color:var(--primary);font-family:monospace;font-weight:600">{{ $sol->numero }}</a>
+                        @else
+                        <span style="font-family:monospace;font-weight:600">{{ $sol->numero }}</span>
+                        @endcan
+                    </td>
                     <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.85rem">{{ $sol->motivo }}</td>
                     <td style="font-size:.85rem;color:var(--text-muted)">{{ $sol->detalles_count ?? '—' }} artículo(s)</td>
                     <td><span class="badge {{ $sol->getPrioridadBadge() }}" style="font-size:.7rem">{{ ucfirst($sol->prioridad) }}</span></td>
                     <td style="font-size:.8rem;color:var(--text-muted)">{{ $sol->fecha_requerida?->format('d/m/Y') ?? '—' }}</td>
                     <td><span class="badge {{ $sol->getEstadoBadge() }}">{{ ucfirst($sol->estado) }}</span></td>
                     <td style="font-size:.85rem">{{ $sol->solicitadoPor?->name ?? '—' }}</td>
-                    <td><a href="{{ route('compras.solicitudes.show', $sol) }}" class="btn-icon" title="Ver">👁</a></td>
+                    <td>
+                        @can('compras.solicitudes.ver')
+                        <a href="{{ route('compras.solicitudes.show', $sol) }}" class="btn-icon" title="Ver">👁</a>
+                        @endcan
+                    </td>
                 </tr>
                 @empty
                 <tr><td colspan="8" style="text-align:center;padding:3rem;color:var(--text-muted)">No hay solicitudes. <a href="{{ route('compras.solicitudes.create') }}">Crear primera</a></td></tr>
@@ -96,6 +113,8 @@
             </tbody>
         </table>
     </div>
-    <div style="padding:1rem">{{ $q->links() }}</div>
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

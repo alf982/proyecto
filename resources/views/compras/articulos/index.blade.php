@@ -4,9 +4,18 @@
     <span>Compras</span><span class="breadcrumb-sep">›</span><span class="current">Artículos</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE ARTÍCULOS
+  Muestra el catálogo principal de bienes, materiales, servicios y equipos.
+  Incluye indicadores de stock bajo/agotado.
+--}}
+
 <div class="page-header">
     <div><h1 class="page-title">Catálogo de Artículos</h1><p class="page-subtitle">Bienes, materiales, servicios y equipos</p></div>
+    @can('compras.articulos.crear')
     <a href="{{ route('compras.articulos.create') }}" class="btn btn-primary">＋ Nuevo Artículo</a>
+    @endcan
 </div>
 @include('components.alert')
 
@@ -76,8 +85,12 @@
                     <td style="font-size:.8rem;color:var(--text-muted)">{{ $art->almacen?->nombre ?? '—' }}</td>
                     <td>
                         <div style="display:flex;gap:.35rem">
+                            @can('compras.articulos.ver')
                             <a href="{{ route('compras.articulos.show',$art) }}" class="btn-icon" title="Ver">👁</a>
+                            @endcan
+                            @can('compras.articulos.editar')
                             <a href="{{ route('compras.articulos.edit',$art) }}" class="btn-icon" title="Editar">✏️</a>
+                            @endcan
                         </div>
                     </td>
                 </tr>
@@ -87,6 +100,8 @@
             </tbody>
         </table>
     </div>
-    <div style="padding:1rem">{{ $q->links() }}</div>
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

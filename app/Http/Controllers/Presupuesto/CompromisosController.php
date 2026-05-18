@@ -17,8 +17,22 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
+/**
+ * Controlador de Compromisos
+ * 
+ * Gestiona el ciclo de vida de un compromiso presupuestario.
+ * Delega la lógica de negocio compleja (validación de saldos, transacciones, generación de causación)
+ * al `CompromisoService` para mantener el controlador limpio y enfocado en HTTP.
+ * 
+ * Ciclo de Estado:
+ * 1. Borrador -> 2. Aprobado -> 3. Causado (Automático por el servicio)
+ *               -> Anulado
+ */
 class CompromisosController extends Controller implements HasMiddleware
 {
+    /**
+     * Inyección de dependencia del servicio de negocio.
+     */
     public function __construct(private readonly CompromisoService $service) {}
 
     public static function middleware(): array
@@ -32,6 +46,11 @@ class CompromisosController extends Controller implements HasMiddleware
     }
 
     // ── LISTADO ──────────────────────────────────────────────────────
+    
+    /**
+     * Muestra el listado paginado de compromisos.
+     * Incluye una vista separada para los compromisos pendientes de aprobación ("Bandeja de entrada").
+     */
     public function index(Request $request)
     {
         $q = Compromiso::with(['ejercicioFiscal', 'unidadEjecutora'])
@@ -47,22 +66,39 @@ class CompromisosController extends Controller implements HasMiddleware
         $ejercicios = CatalogoCache::ejercicios();
         $unidades   = CatalogoCache::unidades();
 
-        return view('presupuesto.compromisos.index', compact('q', 'ejercicios', 'unidades'));
+        // Compromisos en borrador pendientes de aprobación
+        $compromisosPendientes = Compromiso::where('estado', 'borrador')
+            ->with(['unidadEjecutora:id,nombre', 'partida:id,codigo,descripcion'])
+            ->select(['id', 'numero', 'beneficiario', 'monto', 'fecha_compromiso', 'unidad_ejecutora_id', 'partida_presupuestaria_id'])
+            ->orderByDesc('id')
+            ->get();
+
+        return view('presupuesto.compromisos.index', compact('q', 'ejercicios', 'unidades', 'compromisosPendientes'));
     }
 
     // ── CREAR ─────────────────────────────────────────────────────────
+    
+    /**
+     * Muestra el formulario para crear un compromiso.
+     * Utiliza CatalogoCache para cargar los combos sin sobrecargar la DB.
+     */
     public function create()
     {
         $ejercicio     = CatalogoCache::ejercicioActivo();
         $unidades      = CatalogoCache::unidades();
         $partidas      = CatalogoCache::partidas();
-        $proyectos     = ProyectoSia::whereIn('estado', ['activo', 'formulacion'])->orderBy('nombre')->get();
-        $beneficiarios = Beneficiario::activos()->orderBy('razon_social')->get();
+        $proyectos     = CatalogoCache::proyectos();
+        $beneficiarios = CatalogoCache::beneficiarios();
 
         return view('presupuesto.compromisos.create', compact('ejercicio', 'unidades', 'partidas', 'proyectos', 'beneficiarios'));
     }
 
     // ── GUARDAR ───────────────────────────────────────────────────────
+    
+    /**
+     * Procesa la creación de un compromiso.
+     * Resuelve el proveedor (del catálogo o manual) y delega al Service.
+     */
     public function store(StoreCompromisoRequest $request)
     {
         // Resolver nombre del beneficiario
@@ -89,6 +125,10 @@ class CompromisosController extends Controller implements HasMiddleware
     }
 
     // ── DETALLE ───────────────────────────────────────────────────────
+    
+    /**
+     * Muestra la vista detallada ("Show") del compromiso.
+     */
     public function show(Compromiso $compromiso)
     {
         $compromiso->load(['ejercicioFiscal', 'unidadEjecutora', 'proyecto', 'creadoPor', 'aprobadoPor', 'causaciones']);
@@ -96,17 +136,25 @@ class CompromisosController extends Controller implements HasMiddleware
     }
 
     // ── EDITAR ────────────────────────────────────────────────────────
+    
+    /**
+     * Muestra el formulario de edición. Solo permitido si el estado es 'borrador'.
+     */
     public function edit(Compromiso $compromiso)
     {
         if (!$compromiso->esBorrador()) {
             return redirect()->route('presupuesto.compromisos.show', $compromiso)
                 ->with('error', 'Solo se pueden editar compromisos en Borrador.');
         }
-        $proyectos = ProyectoSia::whereIn('estado', ['activo', 'formulacion'])->orderBy('nombre')->get();
+        $proyectos = CatalogoCache::proyectos();
         return view('presupuesto.compromisos.edit', compact('compromiso', 'proyectos'));
     }
 
     // ── ACTUALIZAR ────────────────────────────────────────────────────
+    
+    /**
+     * Procesa la actualización. Delega al Service para verificar si hay impacto financiero.
+     */
     public function update(UpdateCompromisoRequest $request, Compromiso $compromiso)
     {
         try {
@@ -120,6 +168,11 @@ class CompromisosController extends Controller implements HasMiddleware
     }
 
     // ── APROBAR ───────────────────────────────────────────────────────
+    
+    /**
+     * Cambia el estado a 'Aprobado'.
+     * Delega al servicio que además se encargará de crear la Causación inicial.
+     */
     public function aprobar(Compromiso $compromiso)
     {
         try {
@@ -133,6 +186,10 @@ class CompromisosController extends Controller implements HasMiddleware
     }
 
     // ── ANULAR ────────────────────────────────────────────────────────
+    
+    /**
+     * Anula el compromiso y libera el saldo retenido en la partida.
+     */
     public function anular(AnularRequest $request, Compromiso $compromiso)
     {
 

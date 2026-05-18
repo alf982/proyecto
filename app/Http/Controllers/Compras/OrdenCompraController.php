@@ -16,9 +16,19 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Órdenes de Compra
+ * 
+ * Gestiona el principal documento de compromiso de gastos.
+ * La creación de una orden vincula el área de Compras con el Presupuesto.
+ * Verifica la disponibilidad de saldo en la partida presupuestaria antes 
+ * de emitirse y registra el compromiso de reserva de fondos, o 
+ * reintegra dichos fondos si la orden es anulada antes de la causación.
+ */
 class OrdenCompraController extends Controller implements HasMiddleware
 {
     use GuardaRetenciones;
+    
     public static function middleware(): array
     {
         return [
@@ -29,6 +39,12 @@ class OrdenCompraController extends Controller implements HasMiddleware
     }
 
     // ── LISTADO ──────────────────────────────────────────────────────
+    
+    /**
+     * Bandeja principal de Órdenes de Compra.
+     * Soporta búsquedas avanzadas y asegura el aislamiento de datos
+     * por ejercicio fiscal.
+     */
     public function index(Request $request)
     {
         $ejercicioId = session('ejercicio_id');
@@ -49,6 +65,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
     }
 
     // ── CREAR ─────────────────────────────────────────────────────────
+    
     public function create(Request $request)
     {
         $solicitudes   = SolicitudCompra::with('detalles.articulo')->where('estado', 'aprobada')->orderByDesc('id')->get();
@@ -72,6 +89,11 @@ class OrdenCompraController extends Controller implements HasMiddleware
     }
 
     // ── GUARDAR ───────────────────────────────────────────────────────
+    
+    /**
+     * Emite la Orden de Compra y genera el impacto presupuestario de Compromiso.
+     * Utiliza una transacción para prevenir inconsistencias financieras.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -90,7 +112,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
 
         $ejercicio = EjercicioFiscal::where('estado', 'activo')->firstOrFail();
 
-        // Validar saldo si se seleccionó partida
+        // Validar saldo si se seleccionó partida (Pre-Compromiso)
         if ($request->partida_presupuestaria_id) {
             $partida  = PartidaPresupuestaria::findOrFail($request->partida_presupuestaria_id);
             $total    = round(collect($request->lineas)->sum(fn($l) => ($l['cantidad'] ?? 0) * ($l['precio_unitario'] ?? 0)), 2);
@@ -138,7 +160,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
                 'creado_por'               => auth()->id(),
             ]);
 
-            // Guardar renglones
+            // Guardar renglones de la OC
             foreach ($request->lineas as $i => $linea) {
                 if (!($linea['descripcion'] ?? null)) continue;
                 OrdenDetalle::create([
@@ -174,7 +196,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
                 ]);
             }
 
-            // Marcar solicitud como procesada
+            // Marcar solicitud originaria como procesada
             if ($request->solicitud_compra_id) {
                 SolicitudCompra::find($request->solicitud_compra_id)?->update(['estado' => 'procesada']);
             }
@@ -188,6 +210,7 @@ class OrdenCompraController extends Controller implements HasMiddleware
     }
 
     // ── DETALLE ───────────────────────────────────────────────────────
+    
     public function show(OrdenCompra $orden)
     {
         $orden->load(['solicitud', 'beneficiario', 'partida', 'detalles.articulo', 'recepciones', 'creadoPor', 'retenciones.retencion']);
@@ -195,6 +218,12 @@ class OrdenCompraController extends Controller implements HasMiddleware
     }
 
     // ── CAMBIAR ESTADO ────────────────────────────────────────────────
+    
+    /**
+     * Modifica el estado de la Orden de Compra.
+     * Si la OC se Anula, revierte de forma auditable los fondos
+     * presupuestarios si estos habían sido retenidos.
+     */
     public function cambiarEstado(Request $request, OrdenCompra $orden)
     {
         $request->validate(['estado' => 'required|in:confirmada,en_transito,completada,anulada']);

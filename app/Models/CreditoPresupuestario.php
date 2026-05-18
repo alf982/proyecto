@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
+use App\Traits\FiltraPorEjercicio;
+
 class CreditoPresupuestario extends Model implements Auditable
 {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
     use \OwenIt\Auditing\Auditable;
 
     protected $table = 'creditos_presupuestarios';

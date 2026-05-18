@@ -14,8 +14,24 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
+/**
+ * Controlador de Pagos (Tesorería)
+ * 
+ * Gestiona el desembolso financiero y la ejecución presupuestaria final.
+ * Registra transacciones bancarias o emisión de cheques para extinguir 
+ * una deuda reconocida (Causación).
+ * 
+ * Ciclo de Estado:
+ * 1. Pendiente (Se prepara la orden de pago, o se autogenera en borrador al causar)
+ * 2. Procesado (Confirmación del banco, transferencia realizada. Etapa final)
+ * 3. Anulado (Revierte el estado de la Causación a 'Aprobada' si el cheque rebotó o hubo error)
+ */
 class PagoController extends Controller implements HasMiddleware
 {
+    /**
+     * Inyección del servicio de pagos para el manejo de lógica transaccional,
+     * registro de asientos contables (si aplica) y control de presupuesto.
+     */
     public function __construct(private readonly PagoService $service) {}
 
     public static function middleware(): array
@@ -29,6 +45,11 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── LISTADO ──────────────────────────────────────────────────────
+    
+    /**
+     * Lista todas las transacciones de pago.
+     * Incluye una "bandeja de entrada" para causar directamente órdenes pendientes.
+     */
     public function index(Request $request)
     {
         $q = Pago::with(['causacion', 'ejercicioFiscal', 'unidadEjecutora'])
@@ -57,6 +78,11 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── CREAR ─────────────────────────────────────────────────────────
+    
+    /**
+     * Prepara el formulario para emitir una nueva orden de pago,
+     * basándose en una Causación aprobada.
+     */
     public function create(Request $request)
     {
         $causaciones = Causacion::where('estado', 'aprobada')
@@ -74,6 +100,11 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── GUARDAR ───────────────────────────────────────────────────────
+    
+    /**
+     * Almacena la orden de pago. La lógica principal y el descuento en la
+     * partida presupuestaria (pagado) se delega al PagoService.
+     */
     public function store(StorePagoRequest $request)
     {
         $causacion      = Causacion::with('partida')->findOrFail($request->causacion_id);
@@ -90,6 +121,10 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── DETALLE ───────────────────────────────────────────────────────
+    
+    /**
+     * Muestra el recibo o comprobante de egreso.
+     */
     public function show(Pago $pago)
     {
         $pago->load(['causacion.partida', 'causacion.unidadEjecutora', 'ejercicioFiscal', 'unidadEjecutora', 'creadoPor', 'retenciones.retencion']);
@@ -97,6 +132,10 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── EDITAR ────────────────────────────────────────────────────────
+    
+    /**
+     * Formulario para corregir referencias bancarias.
+     */
     public function edit(Pago $pago)
     {
         $pago->load(['causacion', 'ejercicioFiscal', 'unidadEjecutora']);
@@ -111,6 +150,11 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── PROCESAR ─────────────────────────────────────────────────────
+    
+    /**
+     * Confirma que el dinero salió de la cuenta bancaria.
+     * Esta es la última confirmación financiera.
+     */
     public function procesar(ProcesarPagoRequest $request, Pago $pago)
     {
 
@@ -125,6 +169,11 @@ class PagoController extends Controller implements HasMiddleware
     }
 
     // ── ANULAR ────────────────────────────────────────────────────────
+    
+    /**
+     * Reverso financiero. Se reintegra el saldo pagado al saldo causado,
+     * marcando la causación nuevamente como 'aprobada' (pendiente por pago).
+     */
     public function anular(AnularRequest $request, Pago $pago)
     {
 

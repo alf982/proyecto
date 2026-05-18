@@ -6,9 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
+use App\Traits\FiltraPorEjercicio;
+
+/**
+ * Modelo de Movimiento de Partida (Libro Mayor Presupuestario)
+ * 
+ * Actúa como un registro inmutable de partida doble para el presupuesto.
+ * Todas las inyecciones de liquidez (asignaciones, créditos adicionales)
+ * y los recortes o traspasos quedan registrados aquí. 
+ * Utiliza el trait `FiltraPorEjercicio` para autolimitarse al año fiscal activo.
+ */
 class MovimientoPartida extends Model implements Auditable
 {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
     use \OwenIt\Auditing\Auditable;
 
     protected $table = 'movimientos_partidas';
@@ -29,16 +39,27 @@ class MovimientoPartida extends Model implements Auditable
     ];
 
     // ── Relaciones ────────────────────────────────────────────────
+    
+    /**
+     * Partida principal afectada (la que recibe el ingreso o el egreso directo).
+     */
     public function partida()
     {
         return $this->belongsTo(PartidaPresupuestaria::class, 'partida_presupuestaria_id');
     }
 
+    /**
+     * En caso de traspasos, es la partida que cede el dinero (si este mov. es de entrada).
+     */
     public function contrapartida()
     {
         return $this->belongsTo(PartidaPresupuestaria::class, 'partida_contrapartida_id');
     }
 
+    /**
+     * Movimiento espejo. En los traspasos, vincula la "entrada" con la "salida" 
+     * para que si uno se anula, se anule automáticamente el otro.
+     */
     public function movimientoRelacionado()
     {
         return $this->belongsTo(MovimientoPartida::class, 'movimiento_relacionado_id');
@@ -61,28 +82,34 @@ class MovimientoPartida extends Model implements Auditable
 
     // ── Helpers ───────────────────────────────────────────────────
 
-    /** Tipos que SUMAN al saldo de la partida */
+    /** 
+     * Tipos de movimiento que INCREMENTAN el saldo disponible de la partida.
+     */
     public const TIPOS_INGRESO = [
         'asignacion', 'credito_adicional', 'modificacion_entrada', 'reintegro', 'nota_credito',
     ];
 
-    /** Tipos que RESTAN del saldo de la partida */
+    /** 
+     * Tipos de movimiento que DISMINUYEN el saldo disponible de la partida.
+     */
     public const TIPOS_EGRESO = [
         'modificacion_salida', 'ejecucion', 'nota_debito',
         'compromiso', 'causacion', 'pago',
     ];
 
+    /** Verifica lógicamente si el movimiento suma saldo */
     public function esIngreso(): bool
     {
         return in_array($this->tipo, self::TIPOS_INGRESO);
     }
 
+    /** Verifica lógicamente si el movimiento resta saldo */
     public function esEgreso(): bool
     {
         return in_array($this->tipo, self::TIPOS_EGRESO);
     }
 
-    /** Etiquetas legibles para cada tipo */
+    /** Etiquetas legibles para renderizar en la interfaz de usuario */
     public static function etiquetaTipo(string $tipo): string
     {
         return match($tipo) {
@@ -101,13 +128,13 @@ class MovimientoPartida extends Model implements Auditable
         };
     }
 
-    /** Clase CSS de badge según tipo */
+    /** Helper para estilizar dinámicamente si el badge es verde (ingreso) o rojo (egreso) */
     public function getBadgeTipoClass(): string
     {
         return $this->esIngreso() ? 'badge-active' : 'badge-danger';
     }
 
-    /** Clase CSS de badge según estado */
+    /** Helper para estilizar si el movimiento es válido o fue anulado */
     public function getBadgeEstadoClass(): string
     {
         return match($this->estado) {
@@ -117,7 +144,7 @@ class MovimientoPartida extends Model implements Auditable
         };
     }
 
-    /** Generar número correlativo: MP-2026-0001 */
+    /** Genera automáticamente un número correlativo secuencial anual (Ej: MP-2026-0001) */
     public static function generarNumero(int $anio): string
     {
         $ultimo = static::whereYear('created_at', $anio)->max('id') ?? 0;

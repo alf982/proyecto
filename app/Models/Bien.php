@@ -4,6 +4,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Modelo de Bien Nacional (Activo Fijo)
+ * 
+ * Representa un activo físico propiedad de la institución (ej: computadoras, vehículos, escritorios).
+ * Registra su valor de adquisición, depreciación acumulada y ubicación actual.
+ * El ciclo de vida del bien es rastreado a través de la relación `movimientos`
+ * (incorporación, traslados entre departamentos y desincorporación/baja).
+ */
 class Bien extends Model
 {
     use SoftDeletes;
@@ -24,11 +32,21 @@ class Bien extends Model
         'fecha_baja'         => 'date',
     ];
 
+    // ── Relaciones ──────────────────────────────────────────────────
+    
+    /** Categoría que dicta la tasa de depreciación */
     public function categoria()       { return $this->belongsTo(CategoriaBien::class, 'categoria_bien_id'); }
+    
+    /** Departamento que actualmente tiene la custodia del bien */
     public function unidadEjecutora() { return $this->belongsTo(UnidadEjecutora::class); }
+    
     public function creadoPor()       { return $this->belongsTo(User::class, 'creado_por'); }
+    
+    /** Historial de traslados, asignaciones y bajas (Auditoría) */
     public function movimientos()     { return $this->hasMany(MovimientoBien::class); }
 
+    // ── Helpers ───────────────────────────────────────────────────
+    
     public function estadoBadge(): string
     {
         return match($this->estado) {

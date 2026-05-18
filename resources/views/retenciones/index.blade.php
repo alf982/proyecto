@@ -4,11 +4,18 @@
 
 @section('breadcrumb')
     <span>Configuración Fiscal</span>
-    <i class="fa-solid fa-chevron-right" style="font-size:9px;opacity:.5"></i>
+    <span class="breadcrumb-sep">›</span>
     <span class="current">Retenciones</span>
 @endsection
 
 @section('content')
+
+{{-- 
+  VISTA INDEX DE RETENCIONES FISCALES
+  Administración centralizada de impuestos del sistema. Permite configurar porcentajes y alícuotas
+  legales que se usarán transversalmente en Módulos de Presupuesto y Nómina.
+--}}
+
 <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-percent" style="color:var(--accent);margin-right:8px;"></i>Retenciones Fiscales</h1>
@@ -28,21 +35,21 @@
     $oblig   = \App\Models\Retencion::where('obligatoria', true)->where('activo', true)->count();
 @endphp
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px;">
-    <div class="card" style="padding:18px 20px;">
+    <div class="card fade-up" style="padding:18px 20px;">
         <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Total Retenciones</div>
         <div style="font-size:26px;font-weight:700;">{{ $total }}</div>
     </div>
-    <div class="card" style="padding:18px 20px;">
+    <div class="card fade-up" style="padding:18px 20px;animation-delay:.05s">
         <div style="font-size:11px;color:var(--accent-3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Activas</div>
         <div style="font-size:26px;font-weight:700;color:var(--accent-3);">{{ $activas }}</div>
     </div>
-    <div class="card" style="padding:18px 20px;">
+    <div class="card fade-up" style="padding:18px 20px;animation-delay:.1s">
         <div style="font-size:11px;color:var(--accent-warn);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Obligatorias</div>
         <div style="font-size:26px;font-weight:700;color:var(--accent-warn);">{{ $oblig }}</div>
     </div>
 </div>
 
-<div class="card fade-up">
+<div class="card fade-up" style="animation-delay:.15s">
     <div class="card-header">
         <span class="card-title"><i class="fa-solid fa-list" style="margin-right:6px;color:var(--accent)"></i>Listado de Retenciones</span>
     </div>
@@ -142,20 +149,7 @@
         </table>
     </div>
 
-    @if($retenciones->hasPages())
-    <div class="pagination">
-        @foreach($retenciones->links()->elements as $element)
-            @if(is_string($element))
-                <span class="page-link" style="cursor:default;opacity:.4;">{{ $element }}</span>
-            @elseif(is_array($element))
-                @foreach($element as $page => $url)
-                    <a href="{{ $url }}" class="page-link {{ $retenciones->currentPage() == $page ? 'active' : '' }}">{{ $page }}</a>
-                @endforeach
-            @endif
-        @endforeach
-        <span class="page-info">{{ $retenciones->total() }} retenciones</span>
-    </div>
-    @endif
+    <x-pagination :paginator="$retenciones" />
     @endif
 </div>
 @endsection

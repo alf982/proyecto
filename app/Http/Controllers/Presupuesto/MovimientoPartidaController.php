@@ -10,13 +10,31 @@ use App\Models\PartidaPresupuestaria;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Movimientos de Partidas Presupuestarias
+ * 
+ * Gestiona el registro y anulación de modificaciones al presupuesto ordinario.
+ * Soporta operaciones de:
+ * - Asignación (Presupuesto inicial)
+ * - Créditos Adicionales (Incremento de fondos)
+ * - Traspasos (Modificaciones de entrada/salida entre partidas)
+ * 
+ * Implementa una arquitectura transaccional (DB::transaction) para asegurar 
+ * que la contabilidad de partida doble (doble afectación) no genere inconsistencias.
+ */
 class MovimientoPartidaController extends Controller
 {
     // ── Listado ───────────────────────────────────────────────────
+    
+    /**
+     * Muestra el libro mayor de movimientos presupuestarios.
+     * Filtra automáticamente por el Ejercicio Fiscal activo en sesión.
+     */
     public function index(Request $request)
     {
         $ejercicioId = session('ejercicio_id');
 
+        // Carga ambiciosa para optimizar el renderizado del historial
         $movimientos = MovimientoPartida::with(['partida', 'contrapartida', 'creadoPor'])
             ->when($ejercicioId, fn($q) => $q->where('ejercicio_fiscal_id', $ejercicioId))
             ->when($request->partida,     fn($q, $v) => $q->where('partida_presupuestaria_id', $v))
@@ -39,6 +57,10 @@ class MovimientoPartidaController extends Controller
     }
 
     // ── Formulario nuevo ─────────────────────────────────────────
+    
+    /**
+     * Muestra el formulario para registrar un nuevo movimiento.
+     */
     public function create(Request $request)
     {
         $partidas   = PartidaPresupuestaria::activas()->orderBy('codigo')->get();
@@ -53,6 +75,17 @@ class MovimientoPartidaController extends Controller
     }
 
     // ── Guardar ───────────────────────────────────────────────────
+    
+    /**
+     * Almacena y procesa matemáticamente un movimiento presupuestario.
+     * 
+     * Lógica Crítica:
+     * 1. Bloquea las filas involucradas (lockForUpdate) para evitar race conditions.
+     * 2. Recalcula `saldo_actual`, `monto_aprobado` y `monto_vigente` según el tipo.
+     * 3. Si es un traspaso (`modificacion_entrada`), genera automáticamente el 
+     *    movimiento espejo (`modificacion_salida`) deduciendo los fondos de la contrapartida.
+     * 4. Dispara la sincronización del saldo físico de las Cuentas Bancarias vinculadas.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -65,7 +98,7 @@ class MovimientoPartidaController extends Controller
             'cuenta_bancaria_id'         => 'nullable|exists:cuentas_bancarias,id',
             'ejercicio_fiscal_id'        => 'nullable|exists:ejercicios_fiscales,id',
             'observaciones'              => 'nullable|string',
-            // Solo requerido para modificación
+            // Solo requerido para modificación (Traspasos entre cuentas)
             'partida_contrapartida_id'   => 'required_if:tipo,modificacion_entrada|nullable|exists:partidas_presupuestarias,id|different:partida_presupuestaria_id',
         ]);
 
@@ -76,6 +109,7 @@ class MovimientoPartidaController extends Controller
             $saldoAnt  = (float) $partida->saldo_actual;
             $saldoPost = $esIngreso ? $saldoAnt + $request->monto : $saldoAnt - $request->monto;
 
+            // 1. Registro del Movimiento Principal
             $mov = MovimientoPartida::create([
                 'numero'                    => MovimientoPartida::generarNumero(now()->year),
                 'partida_presupuestaria_id' => $partida->id,
@@ -118,12 +152,14 @@ class MovimientoPartidaController extends Controller
                 $partida->cuentaBancaria->recalcularSaldo();
             }
 
-            // ── Doble afectación para modificaciones ──
+            // ── Doble afectación para modificaciones (Traspasos) ──
+            // Si entra dinero a esta partida, debe salir de la contrapartida.
             if ($request->tipo === 'modificacion_entrada') {
                 $contra  = PartidaPresupuestaria::lockForUpdate()->findOrFail($request->partida_contrapartida_id);
                 $saldoAntC  = (float) $contra->saldo_actual;
                 $saldoPostC = $saldoAntC - $request->monto;  // la contrapartida CEDE el monto
 
+                // Generar movimiento espejo
                 $movEspejo = MovimientoPartida::create([
                     'numero'                    => MovimientoPartida::generarNumero(now()->year),
                     'partida_presupuestaria_id' => $contra->id,
@@ -149,6 +185,8 @@ class MovimientoPartidaController extends Controller
                 if ($contra->cuenta_bancaria_id) {
                     $contra->cuentaBancaria->recalcularSaldo();
                 }
+                
+                // Enlazar bidireccionalmente para anulaciones conjuntas
                 $mov->update(['movimiento_relacionado_id' => $movEspejo->id]);
             }
         });
@@ -158,6 +196,10 @@ class MovimientoPartidaController extends Controller
     }
 
     // ── Detalle ───────────────────────────────────────────────────
+    
+    /**
+     * Muestra la vista de auditoría y detalle de un movimiento específico.
+     */
     public function show(MovimientoPartida $movimiento)
     {
         $movimiento->load(['partida', 'contrapartida', 'movimientoRelacionado.partida', 'cuentaBancaria', 'ejercicioFiscal', 'creadoPor']);
@@ -165,11 +207,21 @@ class MovimientoPartidaController extends Controller
     }
 
     // ── Anular ────────────────────────────────────────────────────
+    
+    /**
+     * Anula un movimiento de forma segura y controlada (Rollback Financiero).
+     * 
+     * Revierte los saldos restando/sumando a las partidas afectadas.
+     * Si el movimiento es un traspaso, anula también automáticamente el
+     * movimiento "espejo" para mantener la consistencia contable.
+     */
     public function anular(Request $request, MovimientoPartida $movimiento)
     {
         if ($movimiento->estado === 'anulado') {
             return back()->with('error', 'Este movimiento ya está anulado.');
         }
+        
+        // Bloquear anulación directa de la salida en traspasos (forzar a hacerlo desde la entrada)
         if ($movimiento->tipo === 'modificacion_salida') {
             return back()->with('error', 'Anula el movimiento de entrada relacionado para revertir ambos.');
         }
@@ -209,7 +261,7 @@ class MovimientoPartidaController extends Controller
                 'motivo_anulacion' => $request->motivo_anulacion,
             ]);
 
-            // Si tiene movimiento espejo (modificación), anularlo también
+            // Si tiene movimiento espejo (Traspaso), anularlo también automáticamente
             if ($movimiento->movimiento_relacionado_id) {
                 $espejo = MovimientoPartida::find($movimiento->movimiento_relacionado_id);
                 if ($espejo && $espejo->estado !== 'anulado') {

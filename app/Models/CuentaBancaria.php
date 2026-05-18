@@ -5,6 +5,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
+
+/**
+ * Modelo de Cuenta Bancaria (Tesorería)
+ * 
+ * Representa una cuenta financiera real en un banco comercial.
+ * Estas cuentas proveen los fondos líquidos (disponibilidad financiera)
+ * para respaldar los compromisos y pagos presupuestarios.
+ * 
+ * Nota Arquitectónica:
+ * Las cuentas bancarias son un recurso institucional PERMANENTE.
+ * NO están filtradas por ejercicio fiscal (sin FiltraPorEjercicio),
+ * ya que la misma cuenta existe y opera en todos los años fiscales.
+ * El campo `ejercicio_fiscal_id` registra el año en que fue creada,
+ * pero no restringe su visibilidad en ejercicios posteriores.
+ * 
+ * El `saldo_actual` se recalcula sumando los saldos de las
+ * Partidas Presupuestarias activas vinculadas a ella.
+ */
 class CuentaBancaria extends Model implements Auditable
 {
     use SoftDeletes;
@@ -24,18 +42,22 @@ class CuentaBancaria extends Model implements Auditable
         'fecha_apertura'=> 'date',
     ];
 
-    // Relaciones
+    // ── Relaciones ────────────────────────────────────────────────
+
     public function ejercicioFiscal()   { return $this->belongsTo(EjercicioFiscal::class); }
     public function creadoPor()         { return $this->belongsTo(User::class, 'creado_por'); }
+    
+    /** Historial de ingresos y egresos de la cuenta */
     public function movimientos()              { return $this->hasMany(MovimientoBancario::class); }
     public function conciliaciones()           { return $this->hasMany(ConciliacionBancaria::class); }
-    /** Partidas presupuestarias cuyos fondos ingresan a esta cuenta */
+    
+    /** Partidas presupuestarias cuyos fondos ingresan o están amarrados a esta cuenta */
     public function partidasPresupuestarias()  { return $this->hasMany(PartidaPresupuestaria::class); }
 
-    // Scopes
+    // ── Scopes ───────────────────────────────────────────────────
     public function scopeActivas($q) { return $q->where('estado', 'activa'); }
 
-    // Helpers
+    // ── Helpers ──────────────────────────────────────────────────
     public function estaActiva(): bool  { return $this->estado === 'activa'; }
 
     /**

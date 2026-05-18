@@ -6,9 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
+use App\Traits\FiltraPorEjercicio;
+
+/**
+ * Modelo de Causación (Gasto Devengado / Reconocimiento de Deuda)
+ * 
+ * La Causación representa la segunda etapa de la ejecución presupuestaria.
+ * Ocurre cuando se recibe formalmente el bien o servicio, sustentado por 
+ * un documento válido (factura, recibo, valuación).
+ * En este punto, la institución reconoce formalmente la existencia de una deuda
+ * a favor de un tercero (Beneficiario).
+ * Aquí se calculan y aplican las retenciones de ley (ISLR, IVA, etc.).
+ */
 class Causacion extends Model implements Auditable
 {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
     use \OwenIt\Auditing\Auditable;
 
     protected $table = 'causaciones';
@@ -40,28 +52,39 @@ class Causacion extends Model implements Auditable
         ];
     }
 
-    /** Monto del IVA cobrado por el proveedor */
+    /** Monto del IVA cobrado por el proveedor según factura */
     public function montoIva(): float
     {
         if (!$this->monto_sin_iva || !$this->alicuota_iva) return 0.0;
         return round((float)$this->monto_sin_iva * ((float)$this->alicuota_iva / 100), 2);
     }
 
-    /** Monto neto a transferir al proveedor (total factura - retenciones) */
+    /** 
+     * Monto neto a transferir al proveedor.
+     * Es el total causado (facturado) MENOS el monto de las retenciones aplicadas.
+     */
     public function montoNetoProveedor(): float
     {
         return max(0, (float)$this->monto_causado - (float)$this->monto_retencion);
     }
 
+    // ── Relaciones ────────────────────────────────────────────────
+
     public function ejercicioFiscal()   { return $this->belongsTo(EjercicioFiscal::class); }
     public function unidadEjecutora()   { return $this->belongsTo(UnidadEjecutora::class); }
+    
+    /** Compromiso de origen que reservó inicialmente los fondos */
     public function compromiso()        { return $this->belongsTo(Compromiso::class); }
     public function credito()           { return $this->belongsTo(CreditoPresupuestario::class, 'credito_presupuestario_id'); }
     public function partida()           { return $this->belongsTo(PartidaPresupuestaria::class, 'partida_presupuestaria_id'); }
     public function proyecto()          { return $this->belongsTo(ProyectoSia::class, 'proyecto_id'); }
     public function creadoPor()         { return $this->belongsTo(User::class, 'created_by'); }
     public function aprobadoPor()       { return $this->belongsTo(User::class, 'aprobado_por'); }
+    
+    /** Pagos (órdenes de pago) asociados a esta causación */
     public function pagos()             { return $this->hasMany(Pago::class); }
+    
+    /** Retenciones legales aplicadas (Polimórfica) */
     public function retenciones()       { return $this->morphMany(RetencionAplicada::class, 'retencionable'); }
 
     /** Suma total de retenciones aplicadas a esta causación */
@@ -70,7 +93,8 @@ class Causacion extends Model implements Auditable
         return (float) $this->retenciones->sum('monto_retenido');
     }
 
-    // Helpers
+    // ── Helpers de Estado ────────────────────────────────────────
+    
     public function esBorrador(): bool  { return $this->estado === 'borrador'; }
     public function esAprobada(): bool  { return $this->estado === 'aprobada'; }
     public function esPagada(): bool    { return $this->estado === 'pagada'; }
@@ -96,7 +120,9 @@ class Causacion extends Model implements Auditable
         };
     }
 
-    // Genera el número correlativo: CAU-2026-0001
+    /**
+     * Genera el número correlativo anual: CAU-2026-0001
+     */
     public static function generarNumero(int $anio): string
     {
         do {

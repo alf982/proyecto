@@ -12,6 +12,16 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Solicitudes de Despacho (Pedidos Internos)
+ * 
+ * Gestiona el ciclo de vida de las solicitudes emitidas por los
+ * departamentos hacia el almacén. El flujo de aprobación consta de:
+ * 1. Envío (reserva intencional).
+ * 2. Aprobación (visto bueno del almacén).
+ * 3. Entrega (despacho físico real, que detona el descuento del Kardex 
+ *    y reduce el stock actual).
+ */
 class SolicitudDespachoController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -24,6 +34,11 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── LISTADO ────────────────────────────────────────────────
+    
+    /**
+     * Bandeja de entrada del encargado de almacén.
+     * Soporta KPIs de operación, filtros por estado y departamento.
+     */
     public function index(Request $request)
     {
         $ejercicioId = session('ejercicio_id');
@@ -56,6 +71,7 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── CREAR (formulario para la oficina) ──────────────────────
+    
     public function create()
     {
         $articulos = Articulo::activos()
@@ -70,6 +86,11 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── GUARDAR SOLICITUD ────────────────────────────────────────
+    
+    /**
+     * Registra una nueva petición. Esta acción NO altera el stock
+     * hasta que no se concrete la entrega física.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -117,6 +138,7 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── DETALLE ──────────────────────────────────────────────────
+    
     public function show(SolicitudDespacho $solicitud)
     {
         $solicitud->load(['unidadEjecutora', 'solicitadoPor', 'aprobadoPor', 'detalles.articulo.almacen']);
@@ -124,6 +146,10 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── APROBAR (solo aprueba, NO entrega ni descuenta stock) ───
+    
+    /**
+     * Da el visto bueno administrativo para proceder con el armado del pedido.
+     */
     public function aprobar(SolicitudDespacho $solicitud)
     {
         if (!$solicitud->esEnviada()) {
@@ -141,6 +167,12 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── REGISTRAR ENTREGA REAL (descuenta stock) ─────────────────
+    
+    /**
+     * Formaliza la entrega de los insumos al departamento.
+     * En este punto (y solo aquí), se genera un movimiento de SALIDA
+     * en el Kardex y se deduce el stock real de cada artículo.
+     */
     public function registrarEntrega(Request $request, SolicitudDespacho $solicitud)
     {
         if (!$solicitud->esAprobada()) {
@@ -240,6 +272,7 @@ class SolicitudDespachoController extends Controller implements HasMiddleware
     }
 
     // ── RECHAZAR / CANCELAR (enviada o aprobada) ─────────────────
+    
     public function rechazar(Request $request, SolicitudDespacho $solicitud)
     {
         $request->validate([

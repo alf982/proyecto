@@ -4,8 +4,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use App\Traits\FiltraPorEjercicio;
+
+/**
+ * Modelo de Orden de Compra
+ * 
+ * Es el documento formal que adjudica la adquisición de bienes o servicios a un proveedor.
+ * Financieramente, compromete una porción del Presupuesto (partida presupuestaria)
+ * para garantizar la disponibilidad de fondos.
+ * Al completarse (recepción de bienes), detona el devengo/causación contable.
+ */
 class OrdenCompra extends Model {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
+    
     protected $table = 'ordenes_compra';
     protected $fillable = [
         'numero','solicitud_compra_id','ejercicio_fiscal_id','partida_presupuestaria_id',
@@ -20,15 +31,27 @@ class OrdenCompra extends Model {
         'monto_retencion'=>'decimal:2','monto_neto'=>'decimal:2',
     ];
 
+    // ── Relaciones ────────────────────────────────────────────────
+    
     public function solicitud()      { return $this->belongsTo(SolicitudCompra::class, 'solicitud_compra_id'); }
     public function ejercicioFiscal(){ return $this->belongsTo(EjercicioFiscal::class); }
     public function beneficiario()   { return $this->belongsTo(Beneficiario::class); }
+    
+    /** Partida presupuestaria afectada (comprometida) por esta orden */
     public function partida()        { return $this->belongsTo(PartidaPresupuestaria::class, 'partida_presupuestaria_id'); }
+    
     public function detalles()       { return $this->hasMany(OrdenDetalle::class, 'orden_compra_id')->orderBy('orden'); }
+    
+    /** Recepciones físicas en almacén asociadas a esta orden */
     public function recepciones()    { return $this->hasMany(RecepcionBienes::class, 'orden_compra_id'); }
+    
     public function creadoPor()      { return $this->belongsTo(User::class, 'creado_por'); }
+    
+    /** Retenciones impositivas o fianza vinculadas a la orden */
     public function retenciones()    { return $this->morphMany(RetencionAplicada::class, 'retencionable'); }
 
+    // ── Helpers ───────────────────────────────────────────────────
+    
     public function totalRetenciones(): float
     {
         return (float) $this->retenciones->sum('monto_retenido');
@@ -39,11 +62,13 @@ class OrdenCompra extends Model {
                    'completada'=>'badge-active','anulada'=>'badge-danger'];
         return $badges[$this->estado] ?? 'badge-info';
     }
+    
     public function getEstadoLabel(): string {
         $labels = ['emitida'=>'Emitida','confirmada'=>'Confirmada','en_transito'=>'En Tránsito',
                    'completada'=>'Completada','anulada'=>'Anulada'];
         return $labels[$this->estado] ?? 'N/D';
     }
+    
     public function estaActiva(): bool { return !in_array($this->estado, ['completada','anulada']); }
 
     public static function generarNumero(int $anio): string {

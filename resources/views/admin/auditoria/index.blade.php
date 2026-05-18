@@ -64,14 +64,14 @@
             </form>
         </div>
     </div>
-
-    {{-- Tabla de resultados --}}
     <div class="card fade-up" style="animation-delay:.1s">
         <div class="card-header">
-            <div class="card-title"><i class="fa-solid fa-list" style="color:var(--accent);margin-right:8px;"></i>Eventos
-                Registrados</div>
+            <div class="card-title">
+                <i class="fa-solid fa-list" style="color:var(--accent);margin-right:8px;"></i>Eventos Registrados
+            </div>
             <span style="font-size:12px;color:var(--text-secondary);">{{ $query->total() }} evento(s) encontrado(s)</span>
         </div>
+
         @if($query->isEmpty())
             <div class="empty-state">
                 <div class="empty-icon">🔍</div>
@@ -89,7 +89,7 @@
                             <th>Modelo</th>
                             <th>ID Registro</th>
                             <th>Campos Modificados</th>
-                            <th></th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -108,37 +108,25 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @php
-                                        $badgeClass = match ($audit->event) {
-                                            'created' => 'badge-active',
-                                            'updated' => 'badge-blue',
-                                            'deleted' => 'badge-danger',
-                                            'restored' => 'badge-purple',
-                                            default => 'badge-warn',
-                                        };
-                                        $eventLabel = match ($audit->event) {
-                                            'created' => 'Creado',
-                                            'updated' => 'Actualizado',
-                                            'deleted' => 'Eliminado',
-                                            'restored' => 'Restaurado',
-                                            default => ucfirst($audit->event),
-                                        };
-                                    @endphp
-                                    <span class="badge {{ $badgeClass }}">{{ $eventLabel }}</span>
+                                    <x-audit-badge :event="$audit->event" />
                                 </td>
-                                <td style="font-size:12px;font-family:monospace;">{{ class_basename($audit->auditable_type) }}</td>
+                                <td style="font-size:12px;font-family:monospace;">
+                                    {{ class_basename($audit->auditable_type) }}
+                                </td>
                                 <td style="font-size:12px;font-family:monospace;">#{{ $audit->auditable_id }}</td>
                                 <td style="font-size:12px;color:var(--text-secondary);">
                                     @if($audit->new_values)
-                                        {{ count($audit->new_values) }} campo(s)
-                                        <span
-                                            style="font-size:11px;">({{ implode(', ', array_keys(array_slice($audit->new_values, 0, 3))) }}{{ count($audit->new_values) > 3 ? '...' : '' }})</span>
+                                        @php $keys = array_keys($audit->new_values); @endphp
+                                        {{ count($keys) }} campo(s)
+                                        <span style="font-size:11px;">
+                                            ({{ implode(', ', array_slice($keys, 0, 3)) }}{{ count($keys) > 3 ? '...' : '' }})
+                                        </span>
                                     @else
                                         —
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('admin.auditoria.show', $audit) }}" class="btn btn-sm btn-outline">
+                                    <a href="{{ route('admin.auditoria.show', $audit) }}" class="btn btn-sm btn-outline" title="Ver detalle">
                                         <i class="fa-solid fa-eye"></i>
                                     </a>
                                 </td>
@@ -147,18 +135,8 @@
                     </tbody>
                 </table>
             </div>
-            <div class="pagination">
-                @foreach($query->links()->elements as $element)
-                    @if(is_string($element))
-                        <span class="page-link" style="opacity:.4;">{{ $element }}</span>
-                    @elseif(is_array($element))
-                        @foreach($element as $page => $url)
-                            <a href="{{ $url }}" class="page-link {{ $page == $query->currentPage() ? 'active' : '' }}">{{ $page }}</a>
-                        @endforeach
-                    @endif
-                @endforeach
-                <span class="page-info">{{ $query->firstItem() }}–{{ $query->lastItem() }} de {{ $query->total() }}</span>
-            </div>
+
+            <x-pagination :query="$query" />
         @endif
     </div>
 @endsection

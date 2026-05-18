@@ -17,8 +17,9 @@
     th { background:#f9fafb;font-size:7.5px;padding:4px 6px;text-align:left;color:#6b7280;text-transform:uppercase; }
     td { padding:4px 6px;font-size:8.5px;border-bottom:1px solid #f3f4f6; }
     .tr { text-align:right; }
-    .firmas { display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:22px;padding-top:10px;border-top:1px solid #e5e7eb; }
-    .firma-box { text-align:center; }
+    .firmas-table { width:100%; margin-top:35px; border-top:1px solid #e5e7eb; border-collapse: collapse; padding-top: 25px; }
+    .firmas-table td { width: 50%; text-align: center; border: none; padding: 0 30px; vertical-align: bottom; }
+    .firma-linea { border-top: 1px solid #9ca3af; padding-top: 4px; font-size: 8px; font-weight: 700; margin-top: 40px; }
     .footer { text-align:center;font-size:7px;color:#9ca3af;margin-top:12px;padding-top:6px;border-top:1px solid #e5e7eb; }
 </style>
 </head>
@@ -65,21 +66,46 @@
             <div style="font-size:13px;font-weight:800;color:#991b1b;font-family:monospace;">Bs. {{ number_format($detalle->total_deducciones, 2) }}</div>
         </div>
         <div style="text-align:right;">
-            <div style="font-size:8px;color:#6b7280;font-weight:700;">NETO A PAGAR</div>
-            <div style="font-size:18px;font-weight:800;color:#1e40af;font-family:monospace;">Bs. {{ number_format($detalle->neto, 2) }}</div>
+            <div style="font-size:8px;color:#6b7280;font-weight:700;">SUB-TOTAL NETO</div>
+            <div style="font-size:14px;font-weight:800;color:#1e40af;font-family:monospace;">Bs. {{ number_format($detalle->neto, 2) }}</div>
         </div>
     </div>
 
-    <div class="firmas">
-        <div class="firma-box"><div style="height:25px;"></div>
-            <div style="border-top:1px solid #9ca3af;padding-top:3px;font-size:8px;font-weight:700;">{{ $detalle->empleado?->nombre_completo }}</div>
-            <div style="font-size:7px;color:#6b7280;">Firma del Empleado / Conforme</div>
-        </div>
-        <div class="firma-box"><div style="height:25px;"></div>
-            <div style="border-top:1px solid #9ca3af;padding-top:3px;font-size:8px;font-weight:700;">{{ $nomina->aprobadoPor?->name ?? '_______________' }}</div>
-            <div style="font-size:7px;color:#6b7280;">Recursos Humanos</div>
+    @if($nomina->retenciones->count() > 0)
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;margin-bottom:12px;">
+        <div style="font-size:7px;color:#92400e;text-transform:uppercase;font-weight:bold;margin-bottom:4px;">Retenciones Fiscales (Institucionales)</div>
+        <table style="margin:0;">
+            @php $totalRetencionInd = 0; @endphp
+            @foreach($nomina->retenciones as $ret)
+                @php 
+                    $montoRetInd = $detalle->neto * ($ret->porcentaje_aplicado / 100); 
+                    $totalRetencionInd += $montoRetInd;
+                @endphp
+                <tr>
+                    <td style="padding:2px 0;font-size:8px;color:#92400e;border-bottom:none;">{{ $ret->retencion->nombre ?? 'Retención' }} ({{ number_format($ret->porcentaje_aplicado, 2) }}%)</td>
+                    <td class="tr" style="padding:2px 0;font-size:9px;color:#991b1b;font-family:monospace;font-weight:bold;border-bottom:none;">- Bs. {{ number_format($montoRetInd, 2) }}</td>
+                </tr>
+            @endforeach
+        </table>
+        <div style="text-align:right;border-top:1px solid #fcd34d;margin-top:6px;padding-top:6px;">
+            <div style="font-size:8px;color:#92400e;font-weight:700;">TOTAL A DEPOSITAR</div>
+            <div style="font-size:16px;font-weight:800;color:#1e40af;font-family:monospace;">Bs. {{ number_format($detalle->neto - $totalRetencionInd, 2) }}</div>
         </div>
     </div>
+    @endif
+
+    <table class="firmas-table">
+        <tr>
+            <td>
+                <div class="firma-linea">{{ $detalle->empleado?->nombre_completo }}</div>
+                <div style="font-size:7px;color:#6b7280;">Firma del Empleado / Conforme</div>
+            </td>
+            <td>
+                <div class="firma-linea">{{ $nomina->aprobadoPor?->name ?? '_______________' }}</div>
+                <div style="font-size:7px;color:#6b7280;">Recursos Humanos</div>
+            </td>
+        </tr>
+    </table>
 
     <div class="footer">{{ config('app.name') }} · {{ $nomina->numero }} · Generado: {{ now()->format('d/m/Y H:i') }}</div>
 </div>

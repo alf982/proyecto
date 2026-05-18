@@ -16,8 +16,19 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador del Catálogo de Partidas Presupuestarias
+ * 
+ * Gestiona el árbol de clasificación de cuentas de gasto e ingresos
+ * basándose en el clasificador presupuestario nacional (Ej: ONAPRE en Venezuela).
+ * Maneja la creación de partidas, su relación con cuentas bancarias,
+ * y una lógica estricta de borrado en cascada para mantenimientos correctivos.
+ */
 class PartidaController extends Controller implements HasMiddleware
 {
+    /**
+     * Middleware de autorización de Spatie para restringir rutas.
+     */
     public static function middleware(): array
     {
         return [
@@ -27,6 +38,10 @@ class PartidaController extends Controller implements HasMiddleware
             new Middleware('can:partidas.eliminar', only: ['destroy']),
         ];
     }
+
+    /**
+     * Muestra el catálogo de partidas con soporte para búsqueda.
+     */
     public function index(Request $request)
     {
         $partidas = PartidaPresupuestaria::when($request->search, fn($q, $s) =>
@@ -37,17 +52,25 @@ class PartidaController extends Controller implements HasMiddleware
         return view('presupuesto.partidas.index', compact('partidas'));
     }
 
+    /**
+     * Formulario de creación de una nueva partida.
+     */
     public function create()
     {
         $cuentas = CuentaBancaria::activas()->orderBy('nombre')->get();
         return view('presupuesto.partidas.create', compact('cuentas'));
     }
 
+    /**
+     * Almacena una nueva partida presupuestaria.
+     * Calcula automáticamente la jerarquía (Genérica, Específica, Sub-específica)
+     * extrayendo los fragmentos del código formato: 4.XX.XX.XX.XX
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
             'codigo'             => ['required','string','max:20','unique:partidas_presupuestarias,codigo',
-                                     'regex:/^4\.\d{2}\.\d{2}\.\d{2}\.\d{2}$/'],
+                                     'regex:/^4\.\d{2}\.\d{2}\.\d{2}\.\d{2}$/'], // Validar formato presupuestario estricto
             'descripcion'        => 'required|string|max:300',
             'cuenta_bancaria_id' => 'nullable|exists:cuentas_bancarias,id',
             'saldo_actual'       => 'nullable|numeric|min:0',
@@ -61,7 +84,8 @@ class PartidaController extends Controller implements HasMiddleware
         $data['subespecifica'] = $data['especifica'] . '.' . ($partes[3] ?? '00'); // 4.XX.XX.XX
         $data['activo']       = true;
         $data['saldo_actual'] = $data['saldo_actual'] ?? 0;
-        // monto_aprobado se fija al crear y nunca cambia
+        
+        // monto_aprobado se fija al crear y sirve de base inmutable (Presupuesto Ordinario)
         $data['monto_aprobado'] = $data['saldo_actual'];
 
         PartidaPresupuestaria::create($data);
@@ -70,12 +94,19 @@ class PartidaController extends Controller implements HasMiddleware
             ->with('success', "Partida {$data['codigo']} creada correctamente.");
     }
 
+    /**
+     * Formulario para editar una partida.
+     */
     public function edit(PartidaPresupuestaria $partida)
     {
         $cuentas = CuentaBancaria::activas()->orderBy('nombre')->get();
         return view('presupuesto.partidas.edit', compact('partida', 'cuentas'));
     }
 
+    /**
+     * Actualiza los datos de una partida presupuestaria.
+     * Recalcula la jerarquía ONAPRE en caso de que el código haya cambiado.
+     */
     public function update(Request $request, PartidaPresupuestaria $partida)
     {
         $data = $request->validate([
@@ -100,7 +131,8 @@ class PartidaController extends Controller implements HasMiddleware
         if ((float)$partida->monto_aprobado === 0.0 && isset($data['saldo_actual']) && (float)$data['saldo_actual'] > 0) {
             $data['monto_aprobado'] = $data['saldo_actual'];
         }
-        // Nunca permitir que monto_aprobado baje si ya fue fijado
+        // Nota de diseño: Nunca permitir que monto_aprobado baje o se altere por UI si ya fue fijado.
+        // Debe alterarse solo por medio de 'Modificaciones Presupuestarias'.
 
         $partida->update($data);
 
@@ -108,10 +140,17 @@ class PartidaController extends Controller implements HasMiddleware
             ->with('success', "Partida {$partida->codigo} actualizada.");
     }
 
+    /**
+     * ELIMINACIÓN FÍSICA EN CASCADA.
+     * [PELIGRO]: Esta función realiza un borrado FORZADO profundo.
+     * Solo debe usarse en mantenimientos tempranos o cuando el usuario 
+     * tiene privilegio explícito para corregir un catálogo erróneo.
+     */
     public function destroy(PartidaPresupuestaria $partida)
     {
         $codigo = $partida->codigo;
 
+        // Se usa una transacción para asegurar que la cascada no quede a medias.
         DB::transaction(function () use ($partida) {
             // 1. IDs de causaciones vinculadas a la partida
             $causacionIds = Causacion::where('partida_presupuestaria_id', $partida->id)
@@ -121,7 +160,7 @@ class PartidaController extends Controller implements HasMiddleware
             if ($causacionIds->isNotEmpty()) {
                 $pagoIds = Pago::whereIn('causacion_id', $causacionIds)->pluck('id');
 
-                // 3. Retenciones aplicadas a pagos y causaciones
+                // 3. Eliminar Retenciones aplicadas a pagos y causaciones
                 DB::table('retenciones_aplicadas')
                     ->where(function ($q) use ($pagoIds, $causacionIds) {
                         $q->where(function ($q2) use ($pagoIds) {
@@ -133,25 +172,25 @@ class PartidaController extends Controller implements HasMiddleware
                         });
                     })->delete();
 
-                // 4. Pagos
+                // 4. Borrar Pagos físicamente
                 Pago::whereIn('id', $pagoIds)->forceDelete();
             }
 
-            // 5. Causaciones
+            // 5. Borrar Causaciones físicamente
             Causacion::where('partida_presupuestaria_id', $partida->id)->forceDelete();
 
-            // 6. Compromisos
+            // 6. Borrar Compromisos
             Compromiso::where('partida_presupuestaria_id', $partida->id)->forceDelete();
 
-            // 7. Créditos presupuestarios
+            // 7. Borrar Créditos presupuestarios asignados a la partida
             CreditoPresupuestario::where('partida_presupuestaria_id', $partida->id)->forceDelete();
 
-            // 8. Movimientos (partida principal y contrapartida)
+            // 8. Borrar Movimientos Presupuestarios (Donde es origen o destino)
             MovimientoPartida::where('partida_presupuestaria_id', $partida->id)
                 ->orWhere('partida_contrapartida_id', $partida->id)
                 ->forceDelete();
 
-            // 9. Eliminar la partida misma (forceDelete para borrado físico)
+            // 9. Finalmente, eliminar la partida misma (forceDelete para borrado físico)
             $partida->forceDelete();
         });
 

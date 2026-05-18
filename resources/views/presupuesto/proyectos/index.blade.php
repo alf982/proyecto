@@ -7,12 +7,22 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA INDEX DE PROYECTOS (SIA)
+  Listado de proyectos y acciones centralizadas formuladas para el año fiscal.
+  Los Créditos Presupuestarios se vinculan operativamente desde aquí.
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div>
         <h1 class="page-title">Proyectos</h1>
         <p class="page-subtitle">Proyectos del Plan Operativo Anual</p>
     </div>
-    <a href="{{ route('presupuesto.proyectos.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nuevo Proyecto</a>
+    @can('proyectos.crear')
+    <a href="{{ route('presupuesto.proyectos.create') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nuevo Proyecto
+    </a>
+    @endcan
 </div>
 
 <div class="card fade-up" style="margin-bottom:20px;">
@@ -68,11 +78,19 @@
                     </td>
                     <td style="text-align:right;">
                         <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
-                            <a href="{{ route('presupuesto.proyectos.edit', $proyecto) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen-to-square"></i> Editar</a>
-                            <form method="POST" action="{{ route('presupuesto.proyectos.destroy', $proyecto) }}" style="margin:0;">
+                            @can('proyectos.editar')
+                            <a href="{{ route('presupuesto.proyectos.edit', $proyecto) }}" class="btn btn-outline btn-sm">
+                                <i class="fa-solid fa-pen-to-square"></i> Editar
+                            </a>
+                            @endcan
+                            
+                            @can('proyectos.eliminar')
+                            <form method="POST" action="{{ route('presupuesto.proyectos.destroy', $proyecto) }}" style="margin:0;"
+                                  onsubmit="return confirm('¿Está seguro de eliminar lógicamente este Proyecto?');">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
                             </form>
+                            @endcan
                         </div>
                     </td>
                 </tr>
@@ -88,5 +106,8 @@
             </tbody>
         </table>
     </div>
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$proyectos" />
 </div>
 @endsection

@@ -7,11 +7,20 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA INDEX DE UNIDADES EJECUTORAS
+  Muestra la estructura organizativa de la institución.
+  Permite buscar departamentos y ver su jerarquía.
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div><h1 class="page-title">Unidades Ejecutoras</h1><p class="page-subtitle">Estructura organizativa del ente</p></div>
+    @can('unidades.crear')
     <a href="{{ route('admin.unidades.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nueva Unidad</a>
+    @endcan
 </div>
 
+<!-- Filtros de Búsqueda -->
 <div class="card fade-up" style="margin-bottom:20px;">
     <div class="card-body" style="padding:16px 22px;">
         <form method="GET" style="display:flex;gap:12px;align-items:flex-end;">
@@ -30,6 +39,7 @@
     </div>
 </div>
 
+<!-- Tabla de Resultados -->
 <div class="card fade-up" style="animation-delay:.05s">
     <div class="table-wrap">
         <table>
@@ -51,18 +61,23 @@
                     <td><span class="badge {{ $unidad->activo ? 'badge-active' : 'badge-danger' }}">{{ $unidad->activo ? 'Activa' : 'Inactiva' }}</span></td>
                     <td style="text-align:right;">
                         <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
+                            @can('unidades.editar')
                             <a href="{{ route('admin.unidades.edit', $unidad) }}" class="btn btn-outline btn-sm">
                                 <i class="fa-solid fa-pen-to-square"></i> Editar
                             </a>
+                            @endcan
+                            @can('unidades.eliminar')
                             <form method="POST"
                                   action="{{ route('admin.unidades.destroy', $unidad) }}"
+                                  onsubmit="return confirm('¿Está seguro de eliminar la unidad {{ addslashes($unidad->codigo) }}? Esto podría afectar los registros asociados.')"
                                   style="margin:0;">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-danger btn-sm">
+                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar Unidad">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </form>
+                            @endcan
                         </div>
                     </td>
                 </tr>
@@ -78,5 +93,8 @@
             </tbody>
         </table>
     </div>
+
+    {{-- Componente reutilizable de paginación --}}
+    <x-pagination :paginator="$unidades" />
 </div>
 @endsection

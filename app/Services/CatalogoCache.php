@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Beneficiario;
 use App\Models\ConceptoNomina;
 use App\Models\EjercicioFiscal;
 use App\Models\PartidaPresupuestaria;
+use App\Models\ProyectoSia;
 use App\Models\Retencion;
 use App\Models\UnidadEjecutora;
 use Illuminate\Support\Collection;
@@ -145,7 +147,37 @@ class CatalogoCache
         Cache::forget('catalogo.retenciones');
     }
 
-    // ── Limpiar TODO el caché de catálogos ───────────────────────────
+    // ── Beneficiarios ─────────────────────────────────────────────
+    public static function beneficiarios(): Collection
+    {
+        return self::recuerda('catalogo.beneficiarios', fn () =>
+            Beneficiario::activos()
+                ->orderBy('razon_social')
+                ->get(['id', 'razon_social', 'rif', 'tipo', 'banco_nombre', 'banco_cuenta'])
+        );
+    }
+
+    public static function olvidarBeneficiarios(): void
+    {
+        Cache::forget('catalogo.beneficiarios');
+    }
+
+    // ── Proyectos SIA ─────────────────────────────────────────────
+    public static function proyectos(): Collection
+    {
+        return self::recuerda('catalogo.proyectos', fn () =>
+            ProyectoSia::whereIn('estado', ['activo', 'formulacion'])
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'codigo', 'estado'])
+        );
+    }
+
+    public static function olvidarProyectos(): void
+    {
+        Cache::forget('catalogo.proyectos');
+    }
+
+    // ── Limpiar TODO el caché de catálogos ───────────────────────
     public static function olvidarTodo(): void
     {
         self::olvidarUnidades();
@@ -153,5 +185,7 @@ class CatalogoCache
         self::olvidarEjercicios();
         self::olvidarConceptosNomina();
         self::olvidarRetenciones();
+        self::olvidarBeneficiarios();
+        self::olvidarProyectos();
     }
 }

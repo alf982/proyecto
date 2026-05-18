@@ -6,6 +6,14 @@
     <span class="current">Pagos</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE PAGOS
+  Muestra el listado de pagos ejecutados o en proceso.
+  Incluye una "Bandeja de Entrada" en la parte superior para que los usuarios
+  puedan registrar rápidamente los pagos de las Causaciones que ya están Aprobadas.
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
         <h1 class="page-title">Registro de Pagos</h1>
@@ -25,7 +33,7 @@
 <div class="alert alert-danger fade-up"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>
 @endif
 
-{{-- ── CAUSACIONES PENDIENTES DE PAGO ─────────────────────────── --}}
+{{-- ── CAUSACIONES PENDIENTES DE PAGO (Bandeja de entrada) ─────────────────────────── --}}
 @if($causacionesPendientes->count())
 <div class="card fade-up" style="margin-bottom:20px;border:1px solid rgba(247,187,67,0.35);">
     <div class="card-header" style="background:rgba(247,187,67,0.07);">
@@ -130,7 +138,7 @@
             </tr></thead>
             <tbody>
             @forelse($q as $p)
-            <tr>
+            <tr style="{{ $p->estado === 'anulado' ? 'opacity:.6;' : '' }}">
                 <td>
                     <code style="background:rgba(34,211,166,0.1);color:var(--accent-3);padding:3px 8px;border-radius:5px;font-size:12px;font-weight:600;">
                         {{ $p->numero }}
@@ -154,9 +162,11 @@
                 </td>
                 <td style="text-align:right;">
                     <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
+                        @can('pagos.ver')
                         <a href="{{ route('presupuesto.pagos.show', $p) }}" class="btn btn-outline btn-sm">
                             <i class="fa-solid fa-eye"></i>
                         </a>
+                        @endcan
                     </div>
                 </td>
             </tr>
@@ -172,8 +182,8 @@
             </tbody>
         </table>
     </div>
-    @if($q->hasPages())
-    <div style="padding:16px 20px;">{{ $q->links() }}</div>
-    @endif
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

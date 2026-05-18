@@ -7,6 +7,13 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
+/**
+ * Controlador de Categorías de Bienes Nacionales
+ * 
+ * Gestiona el catálogo de clasificación de activos fijos.
+ * Estas categorías son fundamentales para el módulo ya que dictan
+ * los porcentajes de depreciación anual y la vida útil estimada de los bienes.
+ */
 class CategoriaBienController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -17,8 +24,13 @@ class CategoriaBienController extends Controller implements HasMiddleware
             new Middleware('can:bienes.editar', only: ['edit', 'update', 'destroy']),
         ];
     }
+    
+    /**
+     * Muestra el catálogo de categorías con el conteo de bienes asignados.
+     */
     public function index()
     {
+        // Carga el conteo de bienes para evitar subconsultas en la vista
         $categorias = CategoriaBien::withCount('bienes')->orderBy('codigo')->get();
         return view('bienes.categorias.index', compact('categorias'));
     }
@@ -28,6 +40,9 @@ class CategoriaBienController extends Controller implements HasMiddleware
         return view('bienes.categorias.create');
     }
 
+    /**
+     * Registra una nueva categoría con sus parámetros contables de depreciación.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -36,7 +51,9 @@ class CategoriaBienController extends Controller implements HasMiddleware
             'vida_util_anios'   => 'required|integer|min:1|max:99',
             'tasa_depreciacion' => 'required|numeric|min:0|max:100',
         ]);
+        
         CategoriaBien::create($request->only(['codigo', 'nombre', 'vida_util_anios', 'tasa_depreciacion', 'descripcion']) + ['activo' => true]);
+        
         return redirect()->route('bienes.categorias.index')->with('success', 'Categoría creada correctamente.');
     }
 
@@ -45,6 +62,11 @@ class CategoriaBienController extends Controller implements HasMiddleware
         return view('bienes.categorias.edit', compact('categoria'));
     }
 
+    /**
+     * Actualiza la categoría. Nota: los cambios en tasa de depreciación
+     * solo afectan a los bienes que se registren o deprecien a partir de ahora,
+     * o requieren recálculo del módulo contable.
+     */
     public function update(Request $request, CategoriaBien $categoria)
     {
         $request->validate([
@@ -53,7 +75,9 @@ class CategoriaBienController extends Controller implements HasMiddleware
             'vida_util_anios'   => 'required|integer|min:1|max:99',
             'tasa_depreciacion' => 'required|numeric|min:0|max:100',
         ]);
+        
         $categoria->update($request->only(['codigo', 'nombre', 'vida_util_anios', 'tasa_depreciacion', 'descripcion']) + ['activo' => (bool)$request->activo]);
+        
         return redirect()->route('bienes.categorias.index')->with('success', 'Categoría actualizada.');
     }
 }

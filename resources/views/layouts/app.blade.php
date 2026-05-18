@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'SIA') · Contraloría del Estado Portuguesa</title>
+    <title>@yield('title', 'CEP') · Contraloría del Estado Portuguesa</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
@@ -96,14 +96,22 @@
         }
 
         .logo-icon {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-2));
-            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
             display: grid;
             place-items: center;
-            font-size: 16px;
-            box-shadow: 0 0 18px rgba(79, 142, 247, 0.4);
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #ffffff;
+            padding: 3px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+        }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .logo-text {
@@ -1112,9 +1120,11 @@
         <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="sidebar-logo">
-                <div class="logo-icon"><i class="fa-solid fa-layer-group" style="color:#fff"></i></div>
+                <div class="logo-icon">
+                    <img src="{{ asset('images/logo-cep.png') }}" alt="Logo CEP">
+                </div>
                 <div>
-                    <div class="logo-text"><span>SIA</span> · Sistema</div>
+                    <div class="logo-text"><span>CEP</span> · Sistema</div>
                     <div class="logo-sub">Contraloría E. Portuguesa</div>
                 </div>
             </div>

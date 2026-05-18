@@ -2,6 +2,13 @@
 @section('title', 'Roles de Usuario')
 
 @section('content')
+{{-- 
+  VISTA INDEX DE ROLES
+  Muestra los perfiles de seguridad disponibles en el sistema (RBAC).
+  Presenta tarjetas (Cards) con información sobre cuántos usuarios tienen el rol,
+  y el nivel de acceso (cantidad de permisos).
+--}}
+
 <div class="page-header">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-shield-halved"></i> Roles de Usuario</h1>
@@ -140,3 +147,4 @@
 .rol-locked { display:flex; align-items:center; padding:.45rem .7rem; color:var(--text-secondary); opacity:.4; font-size:.82rem; }
 </style>
 @endsection
+

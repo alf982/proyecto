@@ -146,6 +146,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Reportes de Ejecución
         Route::get('reportes/ejecucion', [ReporteController::class, 'ejecucion'])
             ->name('reportes.ejecucion');
+        Route::post('reportes/ejecucion/exportar', [ReporteController::class, 'exportar'])
+            ->name('reportes.ejecucion.exportar');
 
         // Movimientos de Partidas Presupuestarias
         Route::resource('movimientos-partidas', MovimientoPartidaController::class)
@@ -238,6 +240,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('empleados', EmpleadoController::class)->parameters(['empleados'=>'empleado']);
         // Curriculum
         Route::get('empleados/{empleado}/curriculum',          [EmpleadoController::class,'downloadCV'])->name('empleados.curriculum');
+        Route::get('empleados/{empleado}/carnet-militar',      [EmpleadoController::class,'downloadCarnetMilitar'])->name('empleados.carnet_militar');
         // Familiares
         Route::post('empleados/{empleado}/familiares',         [EmpleadoController::class,'addFamiliar'])->name('empleados.familiares.store');
         Route::delete('empleados/{empleado}/familiares/{familiar}', [EmpleadoController::class,'deleteFamiliar'])->name('empleados.familiares.destroy');
@@ -248,6 +251,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('empleados/{empleado}/formaciones',              [EmpleadoController::class,'addFormacion'])->name('empleados.formaciones.store');
         Route::delete('empleados/{empleado}/formaciones/{formacion}',[EmpleadoController::class,'deleteFormacion'])->name('empleados.formaciones.destroy');
         Route::get('empleados/{empleado}/formaciones/{formacion}/documento',[EmpleadoController::class,'downloadDocFormacion'])->name('empleados.formaciones.documento');
+        
+        // Bonificaciones / Conceptos Individuales
+        Route::post('empleados/{empleado}/bonificaciones',               [EmpleadoController::class,'addBonificacion'])->name('empleados.bonificaciones.store');
+        Route::delete('empleados/{empleado}/bonificaciones/{bonificacion}', [EmpleadoController::class,'deleteBonificacion'])->name('empleados.bonificaciones.destroy');
 
         Route::resource('conceptos', ConceptoNominaController::class)->parameters(['conceptos'=>'concepto'])->only(['index','create','store','edit','update']);
         Route::resource('nominas',   NominaController::class)->parameters(['nominas'=>'nomina'])->only(['index','create','store','show']);
@@ -266,6 +273,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('orden-pago/{orden}',            [PdfController::class, 'ordenPago'])->name('orden-pago');
         // Nómina
         Route::get('nomina/{nomina}',               [PdfController::class, 'nomina'])->name('nomina');
+        Route::get('nomina/{nomina}/recibo/{detalle}', [PdfController::class, 'reciboEmpleado'])->name('nomina.recibo');
         // Compras
         Route::get('orden-compra/{orden}',          [PdfController::class, 'ordenCompra'])->name('orden-compra');
         Route::get('recepciones/{recepcion}/pdf',   [PdfController::class, 'recepcionBienes'])->name('recepciones.pdf');

@@ -2,13 +2,17 @@
 
 namespace App\Providers;
 
+use App\Models\Beneficiario;
 use App\Models\ConceptoNomina;
 use App\Models\EjercicioFiscal;
 use App\Models\PartidaPresupuestaria;
+use App\Models\ProyectoSia;
 use App\Models\UnidadEjecutora;
+use App\Observers\BeneficiarioObserver;
 use App\Observers\ConceptoNominaObserver;
 use App\Observers\EjercicioFiscalObserver;
 use App\Observers\PartidaPresupuestariaObserver;
+use App\Observers\ProyectoSiaObserver;
 use App\Observers\UnidadEjecutoraObserver;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
         UnidadEjecutora::observe(UnidadEjecutoraObserver::class);
         EjercicioFiscal::observe(EjercicioFiscalObserver::class);
         ConceptoNomina::observe(ConceptoNominaObserver::class);
+        Beneficiario::observe(BeneficiarioObserver::class);
+        ProyectoSia::observe(ProyectoSiaObserver::class);
 
         // Super-admin tiene acceso a todo — bypass de todos los gates
         Gate::before(function ($user, $ability) {

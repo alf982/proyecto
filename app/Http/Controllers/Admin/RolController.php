@@ -9,8 +9,20 @@ use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
+/**
+ * Controlador de Roles y Permisos (Seguridad del Sistema)
+ * 
+ * Gestiona el Control de Acceso Basado en Roles (RBAC) utilizando el
+ * paquete spatie/laravel-permission.
+ * Este controlador no solo realiza el CRUD de roles y permisos, sino que también
+ * provee la estructura de agrupación (Módulos y Etiquetas) para renderizar
+ * una interfaz gráfica amigable de asignación de permisos.
+ */
 class RolController extends Controller implements HasMiddleware
 {
+    /**
+     * Define los middlewares de autorización basados en los permisos de Spatie.
+     */
     public static function middleware(): array
     {
         return [
@@ -21,7 +33,13 @@ class RolController extends Controller implements HasMiddleware
         ];
     }
 
-    /** Etiquetas amigables — cubre todos los permisos existentes en la BD */
+    /** 
+     * DICCIONARIO DE ETIQUETAS
+     * Convierte el nombre técnico del permiso (Ej: 'usuarios.crear')
+     * en un título y una descripción legible para la interfaz gráfica.
+     * 
+     * @return array<string, array{0: string, 1: string}>
+     */
     public static function etiquetas(): array
     {
         return [
@@ -214,14 +232,6 @@ class RolController extends Controller implements HasMiddleware
             'bienes.categorias.ver'           => ['Categorías de Bienes','Ver categorías de bienes nacionales'],
             'bienes.categorias.crear'         => ['Categorías de Bienes','Crear y editar categorías de bienes'],
 
-            // Nómina adicionales
-            'nomina.nominas.ver'              => ['Nóminas',            'Ver nóminas generadas y su estado'],
-            'nomina.nominas.crear'            => ['Nóminas',            'Crear y calcular nuevas nóminas'],
-            'nomina.nominas.aprobar'          => ['Nóminas',            'Aprobar nóminas para su pago'],
-            'nomina.nominas.pagar'            => ['Nóminas',            'Marcar nóminas como pagadas'],
-            'nomina.cargos.ver'               => ['Cargos y Puestos',  'Ver cargos disponibles en la organización'],
-            'nomina.cargos.crear'             => ['Cargos y Puestos',  'Crear y editar cargos organizacionales'],
-
             // Ingresos adicionales
             'ingresos.ver'                    => ['Recibos de Ingreso', 'Ver recibos de cobro registrados'],
             'ingresos.caja.ver'               => ['Cajas Recaudadoras', 'Ver cajas recaudadoras y sus arqueos'],
@@ -231,13 +241,14 @@ class RolController extends Controller implements HasMiddleware
             'ingresos.conceptos.crear'        => ['Conceptos de Cobro', 'Crear y editar conceptos de ingreso'],
             'ingresos.arqueos.ver'            => ['Arqueos de Caja',    'Ver arqueos de caja realizados'],
             'ingresos.arqueos.aprobar'        => ['Arqueos de Caja',    'Revisar y aprobar arqueos de caja'],
-
-            // Créditos
-            'creditos.eliminar'               => ['Créditos Presupuestarios', 'Eliminar créditos presupuestarios'],
         ];
     }
 
-    /** Módulos con ícono y nombre amigable */
+    /** 
+     * MÓDULOS DE SISTEMA
+     * Agrupa estéticamente los permisos en la pantalla de "Editar Rol".
+     * Define un icono y un color distintivo para cada módulo.
+     */
     public static function modulos(): array
     {
         return [
@@ -252,11 +263,18 @@ class RolController extends Controller implements HasMiddleware
         ];
     }
 
-    /** Agrupa permisos de la BD por módulo semántico */
+    /** 
+     * Agrupa dinámicamente los permisos de la BD en un array jerárquico 
+     * para facilitar su renderizado iterativo en la vista.
+     * 
+     * @param \Illuminate\Database\Eloquent\Collection $permisos
+     * @return array
+     */
     private function agruparPermisos($permisos): array
     {
         $etiquetas = self::etiquetas();
 
+        // Mapea los prefijos de los permisos (Ej: 'usuarios') a su Módulo general ('sistema')
         $mapaModulo = [
             'dashboard'     => 'sistema',  'usuarios'      => 'sistema',
             'roles'         => 'sistema',  'unidades'      => 'sistema',
@@ -282,6 +300,7 @@ class RolController extends Controller implements HasMiddleware
             $prefijo = explode('.', $perm->name)[0];
             $modulo  = $mapaModulo[$prefijo] ?? 'sistema';
             $label   = $etiquetas[$perm->name] ?? ['Otros permisos', ucwords(str_replace(['.', '-', '_'], ' ', $perm->name))];
+            
             $grupos[$modulo][] = [
                 'id'          => $perm->id,
                 'name'        => $perm->name,
@@ -294,12 +313,19 @@ class RolController extends Controller implements HasMiddleware
 
     // ── ROLES ────────────────────────────────────────────────────────
 
+    /**
+     * Muestra el listado general de Roles del sistema.
+     */
     public function index()
     {
+        // Se cuenta la cantidad de usuarios (users_count) para mostrar estadísticas rápidas
         $roles = Role::with('permissions')->withCount('users')->orderBy('name')->get();
         return view('admin.roles.index', compact('roles'));
     }
 
+    /**
+     * Muestra el formulario avanzado de creación de un Rol.
+     */
     public function createRol()
     {
         $permisos = Permission::orderBy('name')->get();
@@ -308,6 +334,9 @@ class RolController extends Controller implements HasMiddleware
         return view('admin.roles.create', compact('grupos', 'modulos'));
     }
 
+    /**
+     * Almacena el Rol y sus permisos asociados usando syncPermissions().
+     */
     public function storeRol(Request $request)
     {
         $request->validate([
@@ -326,6 +355,7 @@ class RolController extends Controller implements HasMiddleware
             'color'       => $request->color       ?: '#4f8ef7',
             'descripcion' => $request->descripcion ?: null,
         ]);
+        
         if ($request->filled('permisos')) {
             $rol->syncPermissions($request->permisos);
         }
@@ -334,6 +364,9 @@ class RolController extends Controller implements HasMiddleware
             ->with('success', "Rol \"{$rol->name}\" creado correctamente.");
     }
 
+    /**
+     * Muestra el formulario para modificar el Rol y revocar/otorgar permisos.
+     */
     public function editRol(Role $rol)
     {
         $permisos          = Permission::orderBy('name')->get();
@@ -343,6 +376,9 @@ class RolController extends Controller implements HasMiddleware
         return view('admin.roles.edit', compact('rol', 'grupos', 'modulos', 'permisosAsignados'));
     }
 
+    /**
+     * Actualiza el Rol y sincroniza los nuevos permisos.
+     */
     public function updateRol(Request $request, Role $rol)
     {
         $request->validate([
@@ -354,6 +390,7 @@ class RolController extends Controller implements HasMiddleware
             'permisos.*'  => 'exists:permissions,id',
         ]);
 
+        // Protección básica: no se puede renombrar al super-admin
         if ($rol->name !== 'super-admin') {
             $rol->update([
                 'name'        => $request->name,
@@ -362,26 +399,36 @@ class RolController extends Controller implements HasMiddleware
                 'descripcion' => $request->descripcion,
             ]);
         }
+        
+        // Reasigna los permisos seleccionados
         $rol->syncPermissions($request->permisos ?? []);
 
         return redirect()->route('admin.roles.index')
             ->with('success', "Rol \"{$rol->name}\" actualizado correctamente.");
     }
 
+    /**
+     * Elimina el rol, siempre y cuando no tenga usuarios activos ni sea reservado.
+     */
     public function destroyRol(Role $rol)
     {
         if ($rol->users()->count() > 0) {
             return back()->with('error', "No se puede eliminar: el rol tiene {$rol->users()->count()} usuario(s) asignado(s).");
         }
+        // Prevención contra la eliminación de roles críticos del núcleo
         if (in_array($rol->name, ['super-admin', 'administrador'])) {
             return back()->with('error', "El rol \"{$rol->name}\" es un rol del sistema y no puede eliminarse.");
         }
+        
         $rol->delete();
         return redirect()->route('admin.roles.index')->with('success', 'Rol eliminado correctamente.');
     }
 
     // ── PERMISOS ─────────────────────────────────────────────────────
 
+    /**
+     * Listado técnico de permisos individuales.
+     */
     public function permisoIndex()
     {
         $this->authorize('roles.gestionar');
@@ -389,6 +436,7 @@ class RolController extends Controller implements HasMiddleware
             ->orderBy('name')
             ->get()
             ->groupBy(fn($p) => explode('.', $p->name)[0]);
+            
         return view('admin.roles.permisos', compact('permisos'));
     }
 
@@ -398,6 +446,9 @@ class RolController extends Controller implements HasMiddleware
         return view('admin.roles.permiso-create');
     }
 
+    /**
+     * Crea un nuevo permiso técnico (requerido al programar nuevas funciones).
+     */
     public function permisoStore(Request $request)
     {
         $this->authorize('roles.gestionar');

@@ -470,8 +470,8 @@
     <aside class="sidebar" id="sidebar">
 
         <div class="sidebar-logo">
-            <div class="logo-icon"><i class="fa-solid fa-layer-group" style="color:#fff"></i></div>
-            <div class="logo-text"><span>SIA</span> · Admin</div>
+            <div class="logo-icon"><i class="fa-solid fa-shield-halved" style="color:#fff"></i></div>
+            <div class="logo-text"><span>CEP</span> · Admin</div>
         </div>
 
         <nav class="sidebar-nav">
@@ -550,7 +550,7 @@
             <div class="section-header fade-up" style="margin-bottom:24px;">
                 <div>
                     <h1 class="section-title">Panel de Control</h1>
-                    <div class="section-sub">Sistema Integrado de Administración &mdash; Vista general en tiempo real</div>
+                    <div class="section-sub">Contraloría del Estado Portuguesa &mdash; Vista general en tiempo real</div>
                 </div>
                 <button class="btn-outline" id="btn-refresh"><i class="fa-solid fa-arrows-rotate"></i> Actualizar</button>
             </div>

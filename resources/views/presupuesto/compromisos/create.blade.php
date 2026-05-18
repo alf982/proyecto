@@ -120,9 +120,9 @@
                 <option value="{{ $b->id }}"
                     data-nombre="{{ $b->razon_social }}"
                     data-rif="{{ $b->rif }}"
-                    data-tipo="{{ $b->getTipoLabel() }}"
-                    data-banco="{{ $b->banco_nombre }}"
-                    data-cuenta="{{ $b->banco_cuenta }}"
+                    data-tipo="{{ ucfirst($b->tipo) }}"
+                    data-banco="{{ $b->banco_nombre ?? '' }}"
+                    data-cuenta="{{ $b->banco_cuenta ?? '' }}"
                     {{ old('beneficiario_id') == $b->id ? 'selected' : '' }}>
                     [{{ $b->rif }}] {{ $b->razon_social }}
                 </option>

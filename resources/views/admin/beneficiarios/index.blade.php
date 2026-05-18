@@ -6,14 +6,24 @@
     <span class="current">Beneficiarios</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE BENEFICIARIOS
+  Catálogo de proveedores, contratistas, y empleados. 
+  Contiene filtros múltiples (por nombre/rif, tipo, y estado).
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div>
         <h1 class="page-title">Beneficiarios</h1>
         <p class="page-subtitle">Proveedores, contratistas y funcionarios registrados</p>
     </div>
+    @can('beneficiarios.crear')
     <a href="{{ route('admin.beneficiarios.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nuevo Beneficiario</a>
+    @endcan
 </div>
 
+<!-- Barra de Filtros -->
 <div class="card fade-up" style="margin-bottom:18px;">
     <div class="card-body" style="padding:14px 20px;">
         <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -49,6 +59,7 @@
 
 @include('components.alert')
 
+<!-- Tabla de Beneficiarios -->
 <div class="card fade-up" style="animation-delay:.05s;">
     <div class="table-wrap">
         <table>
@@ -80,21 +91,28 @@
                 </td>
                 <td style="text-align:right;">
                     <div style="display:flex;gap:6px;justify-content:flex-end;">
-                        <a href="{{ route('admin.beneficiarios.show', $b) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye"></i></a>
-                        <a href="{{ route('admin.beneficiarios.edit', $b) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen-to-square"></i></a>
+                        @can('beneficiarios.ver')
+                        <a href="{{ route('admin.beneficiarios.show', $b) }}" class="btn btn-outline btn-sm" title="Ver Detalles"><i class="fa-solid fa-eye"></i></a>
+                        @endcan
+                        
+                        @can('beneficiarios.editar')
+                        <a href="{{ route('admin.beneficiarios.edit', $b) }}" class="btn btn-outline btn-sm" title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
                         <form method="POST" action="{{ route('admin.beneficiarios.toggle', $b) }}" style="margin:0;">
                             @csrf
-                            <button type="submit" class="btn btn-sm" style="background:rgba(250,189,0,0.15);border:1px solid rgba(250,189,0,.35);color:var(--accent-warn);">
+                            <button type="submit" class="btn btn-sm" title="{{ $b->activo ? 'Desactivar para bloquear pagos' : 'Activar' }}" style="background:rgba(250,189,0,0.15);border:1px solid rgba(250,189,0,.35);color:var(--accent-warn);">
                                 <i class="fa-solid {{ $b->activo ? 'fa-toggle-off' : 'fa-toggle-on' }}"></i>
                             </button>
                         </form>
-                        <form method="POST" action="{{ route('admin.beneficiarios.destroy', $b) }}" style="margin:0;">
+                        @endcan
+
+                        @can('usuarios.eliminar') {{-- FIXME: Chequear si es usuarios o beneficiarios en permisos --}}
+                        <form method="POST" action="{{ route('admin.beneficiarios.destroy', $b) }}" style="margin:0;" onsubmit="return confirm('¿Eliminar beneficiario {{ addslashes($b->razon_social) }}?')">
                             @csrf @method('DELETE')
-                            <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,.3);color:var(--accent-danger);"
-                                onclick="return confirm('¿Eliminar beneficiario {{ $b->razon_social }}?')">
+                            <button type="submit" class="btn btn-sm" title="Eliminar (Soft Delete)" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,.3);color:var(--accent-danger);">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </form>
+                        @endcan
                     </div>
                 </td>
             </tr>
@@ -110,13 +128,8 @@
             </tbody>
         </table>
     </div>
-    @if($q->hasPages())
-    <div class="pagination">
-        @foreach($q->links()->elements[0] as $page => $url)
-            <a href="{{ $url }}" class="page-link {{ $q->currentPage()==$page?'active':'' }}">{{ $page }}</a>
-        @endforeach
-        <span class="page-info">{{ $q->firstItem() }}–{{ $q->lastItem() }} de {{ $q->total() }}</span>
-    </div>
-    @endif
+    
+    {{-- Componente reutilizable de paginación --}}
+    <x-pagination :paginator="$q" />
 </div>
 @endsection

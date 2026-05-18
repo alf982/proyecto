@@ -3,36 +3,56 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Str;
 use OwenIt\Auditing\Models\Audit;
 
+/**
+ * Clase AuditController
+ * 
+ * Gestiona la visualización de los logs de auditoría del sistema.
+ * Permite filtrar por modelo, evento, usuario y rango de fechas.
+ */
 class AuditController extends Controller implements HasMiddleware
 {
+    /**
+     * Define los middlewares aplicables al controlador.
+     */
     public static function middleware(): array
     {
         return [
             new Middleware('can:roles.gestionar'),
         ];
     }
-    /** Modelos auditados disponibles para revisar */
+
+    /** 
+     * Mapeo de modelos auditados disponibles para revisión.
+     * Facilita el filtrado amigable desde la interfaz.
+     */
     private const MODELOS = [
-        'Causacion'                 => \App\Models\Causacion::class,
-        'Compromiso'                => \App\Models\Compromiso::class,
-        'CreditoPresupuestario'     => \App\Models\CreditoPresupuestario::class,
-        'OrdenPago'                 => \App\Models\OrdenPago::class,
-        'Pago'                      => \App\Models\Pago::class,
-        'Nomina'                    => \App\Models\Nomina::class,
-        'Ingreso'                   => \App\Models\Ingreso::class,
-        'Bien'                      => \App\Models\Bien::class,
-        'User'                      => \App\Models\User::class,
+        'Causacion'             => \App\Models\Causacion::class,
+        'Compromiso'            => \App\Models\Compromiso::class,
+        'CreditoPresupuestario' => \App\Models\CreditoPresupuestario::class,
+        'OrdenPago'             => \App\Models\OrdenPago::class,
+        'Pago'                  => \App\Models\Pago::class,
+        'Nomina'                => \App\Models\Nomina::class,
+        'Ingreso'               => \App\Models\Ingreso::class,
+        'Bien'                  => \App\Models\Bien::class,
+        'User'                  => \App\Models\User::class,
     ];
 
+    /**
+     * Muestra el listado de auditorías con filtros aplicados.
+     * 
+     * @param Request $request
+     * @return \Illuminate\View\View
+     */
     public function index(Request $request)
     {
-        $query = Audit::with('user')
+        // Optimización: eager loading de 'user' y 'auditable' para evitar N+1
+        $query = Audit::with(['user', 'auditable'])
             ->when($request->modelo, function ($q, $modelo) {
                 $q->where('auditable_type', self::MODELOS[$modelo] ?? $modelo);
             })
@@ -44,16 +64,23 @@ class AuditController extends Controller implements HasMiddleware
             ->paginate(30)
             ->withQueryString();
 
-        $modelos  = array_keys(self::MODELOS);
-        $eventos  = ['created', 'updated', 'deleted', 'restored'];
-        $usuarios = \App\Models\User::orderBy('name')->pluck('name', 'id');
-
-        return view('admin.auditoria.index', compact('query', 'modelos', 'eventos', 'usuarios'));
+        return view('admin.auditoria.index', [
+            'query'    => $query,
+            'modelos'  => array_keys(self::MODELOS),
+            'eventos'  => ['created', 'updated', 'deleted', 'restored'],
+            'usuarios' => User::orderBy('name')->pluck('name', 'id')
+        ]);
     }
 
+    /**
+     * Muestra el detalle de una auditoría específica.
+     * 
+     * @param Audit $audit
+     * @return \Illuminate\View\View
+     */
     public function show(Audit $audit)
     {
-        $audit->load('user');
+        $audit->load(['user', 'auditable']);
         return view('admin.auditoria.show', compact('audit'));
     }
 }

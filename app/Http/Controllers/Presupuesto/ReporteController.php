@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Presupuesto;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ExportarReporteEjecucionJob;
 use App\Models\Causacion;
 use App\Models\Compromiso;
 use App\Models\CreditoPresupuestario;
@@ -15,6 +16,24 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Reportes Presupuestarios (Ejecución)
+ * 
+ * Este controlador es el corazón analítico del módulo de presupuesto.
+ * Su propósito es consolidar y calcular en tiempo real el estado de la ejecución
+ * presupuestaria (Matemáticas Financieras Gubernamentales).
+ * 
+ * Calcula los siguientes KPIs globales y por partida:
+ * - Aprobado: Presupuesto original.
+ * - Vigente: Presupuesto modificado (Aprobado +/- Traspasos y Créditos Adicionales).
+ * - Comprometido: Total reservado en la etapa 1 de ejecución.
+ * - Causado: Deuda real consolidada en la etapa 2.
+ * - Pagado: Órdenes de pago ejecutadas en la etapa 3.
+ * - Disponible Real: Vigente - Comprometido. Lo que queda para nuevos gastos.
+ * 
+ * Este controlador despacha Jobs a las Queues (ExportarReporteEjecucionJob) para la 
+ * generación de reportes pesados en PDF, mejorando la respuesta del sistema.
+ */
 class ReporteController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -24,6 +43,10 @@ class ReporteController extends Controller implements HasMiddleware
         ];
     }
 
+    /**
+     * Calcula y muestra el Dashboard de Ejecución Presupuestaria.
+     * Genera la sumatoria de las etapas del gasto, agrupadass por Partida y Unidad Ejecutora.
+     */
     public function ejecucion(Request $request)
     {
         $ejercicioActivo    = EjercicioFiscal::where('estado', 'activo')->first();
@@ -236,5 +259,25 @@ class ReporteController extends Controller implements HasMiddleware
             'todasPartidas', 'partidaSeleccionada',
             'filtroPartida', 'filtroTipo'
         ));
+    }
+
+    /**
+     * Despacha el reporte de ejecución a la queue para generarlo en background.
+     * El usuario es redirigido a sus exportaciones donde podrá descargar el PDF.
+     */
+    public function exportar(Request $request)
+    {
+        $ejercicioActivo = EjercicioFiscal::where('estado', 'activo')->first();
+
+        abort_unless($ejercicioActivo, 404, 'No hay un ejercicio fiscal activo.');
+
+        ExportarReporteEjecucionJob::dispatch(
+            userId:      auth()->id(),
+            ejercicioId: $ejercicioActivo->id,
+            filtros:     $request->only(['partida_id', 'unidad_id']),
+        );
+
+        return redirect()->route('pdf-exports.index')
+            ->with('info', 'El reporte de ejecución presupuestaria se está generando. Aparecerá en esta página en unos segundos — recarga para verlo.');
     }
 }

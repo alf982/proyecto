@@ -4,9 +4,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use App\Traits\FiltraPorEjercicio;
+
 class OrdenPago extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, FiltraPorEjercicio;
 
     protected $table = 'ordenes_pago';
 

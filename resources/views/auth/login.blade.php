@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión · SIA Contraloría</title>
+    <title>Iniciar Sesión · CEP · Contraloría del Estado Portuguesa</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -61,13 +61,19 @@
             border-right: 1px solid var(--border);
         }
         .org-logo {
-            width: 64px; height: 64px;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            border-radius: 16px;
+            width: 160px;
+            height: 160px;
+            background: #ffffff;
+            border-radius: 20px;
             display: grid; place-items: center;
-            font-size: 28px; color: #fff;
-            box-shadow: 0 0 40px rgba(79,142,247,0.3);
-            margin-bottom: 32px;
+            margin-bottom: 28px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        }
+        .org-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         .org-name {
             font-size: 28px;
@@ -189,10 +195,10 @@
 
     <!-- Left panel -->
     <div class="login-left fade-up">
-        <div class="org-logo"><i class="fa-solid fa-layer-group"></i></div>
-        <div class="org-name">Sistema <span>Integrado</span><br>de Administración</div>
+        <div class="org-logo"><img src="{{ asset('images/logo-cep.png') }}" alt="Escudo CEP"></div>
+        <div class="org-name">Contraloría del<br>Estado <span>Portuguesa</span></div>
         <p class="org-sub">
-            Contraloría del Estado Portuguesa — Plataforma oficial de gestión presupuestaria, financiera y administrativa institucional.
+            <strong style="color:var(--accent);font-size:13px;letter-spacing:.5px">CEP</strong> — Plataforma oficial de gestión presupuestaria, financiera y administrativa institucional.
         </p>
         <div class="feature-list">
             <div class="feature-item">
@@ -279,7 +285,7 @@
         </form>
 
         <div class="login-footer">
-            SIA · Contraloría del Estado Portuguesa &copy; {{ date('Y') }}<br>
+            CEP · Contraloría del Estado Portuguesa &copy; {{ date('Y') }}<br>
             <span style="opacity:.5">v1.0.0 · Uso exclusivo institucional</span>
         </div>
     </div>

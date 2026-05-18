@@ -1,5 +1,6 @@
 <?php
 namespace App\Http\Controllers\Compras;
+
 use App\Http\Controllers\Controller;
 use App\Models\Articulo;
 use App\Models\EjercicioFiscal;
@@ -10,6 +11,14 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Solicitudes de Compra (Requisiciones)
+ * 
+ * Gestiona el ciclo de vida de una requisición interna para adquirir
+ * o reabastecer artículos. Incluye la creación de la solicitud, 
+ * su flujo de aprobación, y rechazo. Las solicitudes aprobadas son 
+ * insumo para generar Órdenes de Compra.
+ */
 class SolicitudController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
@@ -21,6 +30,10 @@ class SolicitudController extends Controller implements HasMiddleware
         ];
     }
 
+    /**
+     * Bandeja de Entrada de Solicitudes de Compra.
+     * Muestra las solicitudes filtradas por el ejercicio fiscal actual.
+     */
     public function index(Request $request)
     {
         $ejercicioId = session('ejercicio_id');
@@ -77,6 +90,11 @@ class SolicitudController extends Controller implements HasMiddleware
         return view('compras.solicitudes.create', compact('articulos', 'agotados', 'articulosJson', 'agotadosJson'));
     }
 
+    /**
+     * Guarda la nueva requisición en la base de datos.
+     * Utiliza una transacción para asegurar que la solicitud y sus
+     * líneas de detalle se guarden atómicamente.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -129,6 +147,9 @@ class SolicitudController extends Controller implements HasMiddleware
         return view('compras.solicitudes.show', compact('solicitud'));
     }
 
+    /**
+     * Aprueba formalmente la solicitud, permitiendo que avance a Orden de Compra.
+     */
     public function aprobar(SolicitudCompra $solicitud)
     {
         $solicitud->update([
@@ -139,6 +160,9 @@ class SolicitudController extends Controller implements HasMiddleware
         return back()->with('success', 'Solicitud aprobada. Puede proceder a crear la Orden de Compra.');
     }
 
+    /**
+     * Rechaza la solicitud requiriendo obligatoriamente un motivo.
+     */
     public function rechazar(Request $request, SolicitudCompra $solicitud)
     {
         $request->validate(['motivo_rechazo' => 'required|string|min:10']);

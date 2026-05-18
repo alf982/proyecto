@@ -4,6 +4,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Modelo de Empleado (Talento Humano)
+ * 
+ * Entidad central del módulo de Recursos Humanos y Nómina.
+ * Almacena el expediente completo del trabajador (datos personales,
+ * laborales, bancarios, médicos y carga familiar).
+ * Su estado ('activo', 'inactivo', 'jubilado') y su 'cargo_id' son
+ * determinantes clave al momento de generar la corrida de nómina.
+ */
 class Empleado extends Model
 {
     use SoftDeletes;
@@ -12,17 +21,21 @@ class Empleado extends Model
 
     protected $fillable = [
         // Datos laborales
-        'cedula', 'nombre', 'apellido', 'cargo_id', 'unidad_ejecutora_id',
+        'cedula', 'pasaporte', 'nombres', 'primer_apellido', 'segundo_apellido', 'sexo', 'cargo_id', 'unidad_ejecutora_id',
         'fecha_ingreso', 'tipo', 'banco', 'numero_cuenta', 'telefono', 'email',
         'estado', 'fecha_egreso', 'observaciones', 'creado_por',
         // Datos civiles
-        'estado_civil', 'nacionalidad', 'fecha_nacimiento', 'lugar_nacimiento',
+        'estado_civil', 'nacionalidad', 'pais_origen', 'numero_carnet_militar', 'fecha_expedicion_militar', 'fecha_nacimiento', 'lugar_nacimiento', 'pais_nacimiento', 'estado_nacimiento', 'municipio_nacimiento',
         // Grado académico
         'nivel_instruccion', 'titulo', 'institucion_educativa',
         // Dirección
-        'estado_residencia', 'municipio', 'parroquia', 'direccion_completa',
+        'pais_residencia', 'estado_residencia', 'municipio', 'parroquia', 'direccion_completa',
+        // Experiencia
+        'anos_experiencia_publica', 'meses_experiencia_publica', 'anos_experiencia_privada', 'meses_experiencia_privada', 'anos_experiencia_independiente', 'meses_experiencia_independiente', 'inhabilitado',
         // Curriculum
         'curriculum_path',
+        // Militar
+        'carnet_militar_foto_path',
         // Salud
         'tipo_sangre', 'tiene_discapacidad', 'tipo_discapacidad', 'condicion_medica',
         // Contacto de emergencia
@@ -37,18 +50,39 @@ class Empleado extends Model
     ];
 
     // ── Relaciones ────────────────────────────────────────────────
+    
+    /** Cargo actual (determina el salario base) */
     public function cargo()           { return $this->belongsTo(Cargo::class); }
+    
+    /** Departamento al que está adscrito */
     public function unidadEjecutora() { return $this->belongsTo(UnidadEjecutora::class); }
+    
     public function creadoPor()       { return $this->belongsTo(User::class, 'creado_por'); }
+    
+    /** Historial de pagos (recibos de nómina) */
     public function nominasDetalle()  { return $this->hasMany(NominaDetalle::class); }
+    
+    /** Cargas familiares (impacta en conceptos de nómina como prima por hijos) */
     public function familiares()      { return $this->hasMany(EmpleadoFamiliar::class); }
+    
     public function historialCargos() { return $this->hasMany(EmpleadoHistorialCargo::class)->orderByDesc('fecha_inicio'); }
     public function formaciones()     { return $this->hasMany(EmpleadoFormacion::class)->orderByDesc('fecha_inicio'); }
+    
+    /** Bonificaciones individuales y asignaciones especiales asignadas a este trabajador */
+    public function bonificaciones()
+    {
+        return $this->hasMany(EmpleadoBonificacion::class);
+    }
+
+    public function bonificacionesActivas()
+    {
+        return $this->bonificaciones()->where('activo', true);
+    }
 
     // ── Accessors ─────────────────────────────────────────────────
     public function getNombreCompletoAttribute(): string
     {
-        return $this->nombre . ' ' . $this->apellido;
+        return $this->nombres . ' ' . $this->primer_apellido . ($this->segundo_apellido ? ' ' . $this->segundo_apellido : '');
     }
 
     /**

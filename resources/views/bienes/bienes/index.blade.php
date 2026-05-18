@@ -2,10 +2,17 @@
 @section('title', 'Inventario de Bienes')
 @section('breadcrumb')
     <span>Bienes Nacionales</span>
-    <i class="fa-solid fa-chevron-right" style="font-size:9px;opacity:.5"></i>
+    <span class="breadcrumb-sep">›</span>
     <span class="current">Inventario</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE INVENTARIO DE BIENES
+  Catálogo principal de todos los activos fijos registrados en el sistema.
+  Permite filtrar por categoría, estado y exportar a PDF para auditorías físicas.
+--}}
+
 <div class="page-header fade-up">
     <h1 class="page-title">Inventario de Bienes</h1>
     <p class="page-subtitle">Activos fijos registrados en el sistema</p>
@@ -27,7 +34,11 @@
                     @foreach($categorias as $cat)<option value="{{ $cat->id }}" {{ request('categoria')==$cat->id?'selected':'' }}>{{ $cat->nombre }}</option>@endforeach
                 </select>
             </form>
+            
+            @can('bienes.crear')
             <a href="{{ route('bienes.bienes.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Incorporar Bien</a>
+            @endcan
+            
             <a href="{{ route('pdf.inventario-bienes', request()->only(['categoria','estado'])) }}" target="_blank"
                class="btn btn-sm" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">
                 <i class="fa-solid fa-file-pdf"></i> Exportar PDF
@@ -50,7 +61,11 @@
                 <td style="font-weight:700;color:var(--accent-3);">Bs. {{ number_format($b->valor_actual,2) }}</td>
                 <td><span class="badge {{ $b->estadoBadge() }}">{{ ucwords(str_replace('_',' ',$b->estado)) }}</span></td>
                 <td style="font-size:12px;color:var(--text-secondary);">{{ $b->fecha_incorporacion->format('d/m/Y') }}</td>
-                <td><a href="{{ route('bienes.bienes.show', $b) }}" class="btn btn-outline btn-sm">Ver</a></td>
+                <td>
+                    @can('bienes.ver')
+                    <a href="{{ route('bienes.bienes.show', $b) }}" class="btn btn-outline btn-sm">Ver</a>
+                    @endcan
+                </td>
             </tr>
             @empty
             <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">💻</div><div class="empty-title">Sin bienes registrados</div><p class="empty-desc">Incorpore el primer bien al inventario.</p></div></td></tr>
@@ -58,6 +73,8 @@
             </tbody>
         </table>
     </div>
-    @if($bienes->hasPages())<div class="pagination">{{ $bienes->links() }}</div>@endif
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$bienes" />
 </div>
 @endsection

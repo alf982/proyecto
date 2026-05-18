@@ -7,14 +7,22 @@
 @endsection
 
 @section('content')
+{{-- 
+  VISTA INDEX DE MOVIMIENTOS DE PARTIDAS (Libro Mayor)
+  Muestra el historial de ingresos y egresos (Asignaciones, Traspasos, etc.).
+  Integra múltiples filtros financieros.
+--}}
+
 <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
     <div>
         <h1 class="page-title">Movimientos de Partidas Presupuestarias</h1>
         <p class="page-subtitle">Registro de ingresos, egresos y modificaciones de fondos por partida</p>
     </div>
+    @can('movimientos.crear')
     <a href="{{ route('presupuesto.movimientos-partidas.create') }}" class="btn btn-primary">
         <i class="fa-solid fa-plus"></i> Nuevo Movimiento
     </a>
+    @endcan
 </div>
 
 {{-- Filtros --}}
@@ -138,9 +146,11 @@
                         </span>
                     </td>
                     <td style="text-align:right;">
+                        @can('movimientos.ver')
                         <a href="{{ route('presupuesto.movimientos-partidas.show', $mov) }}" class="btn btn-outline btn-sm">
                             <i class="fa-solid fa-eye"></i>
                         </a>
+                        @endcan
                     </td>
                 </tr>
                 @empty
@@ -155,11 +165,8 @@
             </tbody>
         </table>
     </div>
-    @if($movimientos->hasPages())
-    <div class="pagination">
-        {{ $movimientos->links() }}
-        <span class="page-info">{{ $movimientos->firstItem() }}–{{ $movimientos->lastItem() }} de {{ $movimientos->total() }}</span>
-    </div>
-    @endif
+    
+    {{-- Componente estándar de paginación --}}
+    <x-pagination :paginator="$movimientos" />
 </div>
 @endsection

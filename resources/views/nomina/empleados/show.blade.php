@@ -22,7 +22,7 @@
 
 {{-- ── TABS ──────────────────────────────────────────────────────── --}}
 <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);overflow-x:auto;" id="emp-tabs">
-    @foreach([['perfil','Perfil','fa-id-card'],['salud','Salud','fa-heart-pulse'],['direccion','Dirección','fa-location-dot'],['familiares','Familiares','fa-people-group'],['historial','Historial','fa-timeline'],['formacion','Formación','fa-book-open']] as [$tid,$tlabel,$ticon])
+    @foreach([['perfil','Perfil','fa-id-card'],['salud','Salud','fa-heart-pulse'],['direccion','Dirección','fa-location-dot'],['familiares','Familiares','fa-people-group'],['historial','Historial','fa-timeline'],['formacion','Formación','fa-book-open'],['bonificaciones','Asignaciones Ind.','fa-calculator']] as [$tid,$tlabel,$ticon])
     <button onclick="showTab('{{ $tid }}')" id="tab-{{ $tid }}"
         style="padding:10px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-secondary);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;transition:all .2s;"
         class="emp-tab">
@@ -32,6 +32,9 @@
         @endif
         @if($tid==='formacion')
             <span style="background:var(--accent-warn);color:#fff;border-radius:100px;padding:1px 7px;font-size:11px;margin-left:4px;">{{ $empleado->formaciones->count() }}</span>
+        @endif
+        @if($tid==='bonificaciones')
+            <span style="background:var(--accent-3);color:#fff;border-radius:100px;padding:1px 7px;font-size:11px;margin-left:4px;">{{ $empleado->bonificacionesActivas()->count() }}</span>
         @endif
     </button>
     @endforeach
@@ -65,23 +68,50 @@
 {{-- Datos civiles y académicos --}}
 <div class="card fade-up" style="margin-top:20px;">
     <div class="card-header">
-        <div class="card-title"><i class="fa-solid fa-person" style="color:var(--accent-2);margin-right:8px;"></i>Datos Civiles y Académicos</div>
+        <div class="card-title"><i class="fa-solid fa-person" style="color:var(--accent-2);margin-right:8px;"></i>Datos Personales, Civiles y Académicos</div>
         @can('nomina.empleados.editar')
         <a href="{{ route('nomina.empleados.edit', $empleado) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i> Editar</a>
         @endcan
     </div>
     <div class="card-body">
-        <div class="form-row form-row-3">
+        <div class="form-row form-row-3" style="margin-bottom:15px;">
+            <div><div style="font-size:11px;color:var(--text-secondary);">PASAPORTE</div><div>{{ $empleado->pasaporte ?? '—' }}</div></div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">SEXO</div><div>{{ $empleado->sexo == 'M' ? 'Masculino' : ($empleado->sexo == 'F' ? 'Femenino' : '—') }}</div></div>
             <div><div style="font-size:11px;color:var(--text-secondary);">ESTADO CIVIL</div><div>{{ $empleado->estado_civil ? App\Models\Empleado::estadosCiviles()[$empleado->estado_civil] : '—' }}</div></div>
-            <div><div style="font-size:11px;color:var(--text-secondary);">NACIONALIDAD</div><div>{{ $empleado->nacionalidad ?? '—' }}</div></div>
-            <div><div style="font-size:11px;color:var(--text-secondary);">FECHA DE NACIMIENTO</div><div>{{ $empleado->fecha_nacimiento ? $empleado->fecha_nacimiento->format('d/m/Y') . ' (' . $empleado->fecha_nacimiento->diffInYears(now()) . ' años)' : '—' }}</div></div>
-            <div><div style="font-size:11px;color:var(--text-secondary);">LUGAR DE NACIMIENTO</div><div>{{ $empleado->lugar_nacimiento ?? '—' }}</div></div>
-            <div><div style="font-size:11px;color:var(--text-secondary);">NIVEL DE INSTRUCCIÓN</div><div>{{ $empleado->nivel_instruccion ? App\Models\Empleado::nivelesInstruccion()[$empleado->nivel_instruccion] : '—' }}</div></div>
-            <div><div style="font-size:11px;color:var(--text-secondary);">TÍTULO</div><div>{{ $empleado->titulo ?? '—' }}</div></div>
-            <div style="grid-column:span 3;"><div style="font-size:11px;color:var(--text-secondary);">INSTITUCIÓN EDUCATIVA</div><div>{{ $empleado->institucion_educativa ?? '—' }}</div></div>
-            <div><div style="font-size:11px;color:var(--text-secondary);">CARGAS FAMILIARES</div>
-                <div style="font-weight:700;color:var(--accent-3);">{{ $empleado->familiares->where('es_carga_familiar',true)->count() }}</div>
+            
+            <div>
+                <div style="font-size:11px;color:var(--text-secondary);">CARNET MILITAR</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    {{ $empleado->numero_carnet_militar ?? '—' }}
+                    @if($empleado->carnet_militar_foto_path)
+                    <a href="{{ route('empleados.carnet_militar', $empleado) }}" target="_blank" class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;" title="Ver Foto">
+                        <i class="fa-solid fa-image"></i> Ver
+                    </a>
+                    @endif
+                </div>
             </div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">EXPEDICIÓN MILITAR</div><div>{{ $empleado->fecha_expedicion_militar ? \Carbon\Carbon::parse($empleado->fecha_expedicion_militar)->format('d/m/Y') : '—' }}</div></div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">NACIONALIDAD</div><div>{{ $empleado->nacionalidad ?? '—' }}</div></div>
+            
+            <div><div style="font-size:11px;color:var(--text-secondary);">FECHA NACIMIENTO (EDAD)</div><div>{{ $empleado->fecha_nacimiento ? $empleado->fecha_nacimiento->format('d/m/Y') . ' (' . $empleado->fecha_nacimiento->age . ')' : '—' }}</div></div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">PAÍS NACIMIENTO</div><div>{{ $empleado->pais_nacimiento ?? '—' }}</div></div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">LUGAR NACIMIENTO</div><div>{{ $empleado->estado_nacimiento ?? '—' }}{{ $empleado->municipio_nacimiento ? ', ' . $empleado->municipio_nacimiento : '' }}</div></div>
+        </div>
+        
+        <div style="height:1px;background:var(--border);margin:15px 0;"></div>
+        
+        <div class="form-row form-row-3" style="margin-bottom:15px;">
+            <div><div style="font-size:11px;color:var(--text-secondary);">EXPERIENCIA PÚBLICA</div><div>{{ $empleado->anos_experiencia_publica }} años, {{ $empleado->meses_experiencia_publica }} meses</div></div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">EXPERIENCIA PRIVADA</div><div>{{ $empleado->anos_experiencia_privada }} años, {{ $empleado->meses_experiencia_privada }} meses</div></div>
+            <div><div style="font-size:11px;color:var(--text-secondary);">EXP. INDEPENDIENTE</div><div>{{ $empleado->anos_experiencia_independiente }} años, {{ $empleado->meses_experiencia_independiente }} meses</div></div>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:15px 0;"></div>
+
+        <div class="form-row form-row-3">
+            <div><div style="font-size:11px;color:var(--text-secondary);">NIVEL DE INSTRUCCIÓN</div><div>{{ $empleado->nivel_instruccion ? App\Models\Empleado::nivelesInstruccion()[$empleado->nivel_instruccion] : '—' }}</div></div>
+            <div style="grid-column:span 2;"><div style="font-size:11px;color:var(--text-secondary);">TÍTULO</div><div>{{ $empleado->titulo ?? '—' }}</div></div>
+            <div style="grid-column:span 3;"><div style="font-size:11px;color:var(--text-secondary);">INSTITUCIÓN EDUCATIVA</div><div>{{ $empleado->institucion_educativa ?? '—' }}</div></div>
         </div>
     </div>
 </div>
@@ -255,12 +285,11 @@
     <div class="card-header"><div class="card-title"><i class="fa-solid fa-timeline" style="color:var(--accent);margin-right:8px;"></i>Historial de Cargos</div></div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Cargo</th><th>Institución</th><th>Unidad</th><th>Desde</th><th>Hasta</th><th>Duración</th><th>Motivo</th><th></th></tr></thead>
+            <thead><tr><th>Cargo</th><th>Unidad</th><th>Desde</th><th>Hasta</th><th>Duración</th><th>Motivo</th><th></th></tr></thead>
             <tbody>
             @forelse($empleado->historialCargos as $h)
             <tr>
                 <td style="font-weight:600;">{{ $h->cargo_nombre }}</td>
-                <td style="font-size:12px;">{{ $h->institucion_nombre }}</td>
                 <td style="font-size:12px;">{{ $h->unidadEjecutora->nombre ?? '—' }}</td>
                 <td style="font-family:monospace;font-size:12px;">{{ $h->fecha_inicio->format('d/m/Y') }}</td>
                 <td style="font-family:monospace;font-size:12px;">
@@ -291,24 +320,15 @@
             @csrf
             <div class="form-row form-row-3" style="margin-bottom:16px;">
                 <div class="form-group">
-                    <label class="form-label">Cargo del Sistema</label>
-                    <select name="cargo_id" class="form-control" id="hCargo">
-                        <option value="">— Cargo libre / externo —</option>
+                    <label class="form-label">Cargo del Sistema *</label>
+                    <select name="cargo_id" class="form-control" required>
+                        <option value="">— Seleccionar Cargo —</option>
                         @foreach($cargos as $c)
                         <option value="{{ $c->id }}" {{ old('cargo_id')==$c->id?'selected':'' }}>{{ $c->nombre }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group" id="hCargoTextoWrap" style="display:{{ old('cargo_id') ? 'none' : 'block' }};">
-                    <label class="form-label">Cargo (texto libre)</label>
-                    <input type="text" name="cargo_texto" class="form-control" maxlength="200"
-                        placeholder="Nombre del cargo externo o libre…" value="{{ old('cargo_texto') }}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Institución</label>
-                    <input type="text" name="institucion" class="form-control" maxlength="200"
-                        placeholder="Dejar vacío = esta institución" value="{{ old('institucion') }}">
-                </div>
+
                 <div class="form-group">
                     <label class="form-label">Unidad Ejecutora</label>
                     <select name="unidad_ejecutora_id" class="form-control">
@@ -327,7 +347,7 @@
                     <input type="date" name="fecha_fin" class="form-control" value="{{ old('fecha_fin') }}"
                         placeholder="Vacío = cargo actual">
                 </div>
-                <div class="form-group" style="grid-column:span 3;">
+                <div class="form-group" style="grid-column:span 2;">
                     <label class="form-label">Motivo del Cambio</label>
                     <input type="text" name="motivo_cambio" class="form-control" maxlength="300" value="{{ old('motivo_cambio') }}">
                 </div>
@@ -552,6 +572,147 @@
 @endcan
 </div>{{-- /pane-formacion --}}
 
+{{-- ═══════════ TAB: BONIFICACIONES / CONCEPTOS INDIVIDUALES ═══════════ --}}
+<div id="pane-bonificaciones" style="display:none;">
+    <div class="card fade-up">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div class="card-title"><i class="fa-solid fa-calculator" style="color:var(--accent);margin-right:8px;"></i>Conceptos & Bonificaciones Especiales</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Asignaciones o Deducciones exclusivas para este trabajador.</div>
+            </div>
+            @can('nomina.empleados.editar')
+            <button type="button" class="btn btn-primary btn-sm shadow-sm" onclick="document.getElementById('modalAddConcepto').style.display='flex'">
+                <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Asignar Concepto
+            </button>
+            @endcan
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Concepto</th>
+                        <th>Tipo</th>
+                        <th>Monto Asignado</th>
+                        <th>Cálculo</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($empleado->bonificaciones as $bono)
+                        <tr>
+                            <td><code style="background:rgba(0,0,0,0.05);padding:3px 6px;border-radius:4px;font-family:monospace;">{{ $bono->concepto->codigo }}</code></td>
+                            <td>
+                                <div style="font-weight:600;color:var(--text-primary);">{{ $bono->concepto->nombre }}</div>
+                                @if($bono->observaciones)
+                                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">{{ $bono->observaciones }}</div>
+                                @endif
+                            </td>
+                            <td>
+                                @if($bono->concepto->tipo === 'asignacion')
+                                    <span class="badge" style="background:rgba(39,174,96,0.1);color:#27ae60;">Asignación</span>
+                                @else
+                                    <span class="badge" style="background:rgba(231,76,60,0.1);color:#e74c3c;">Deducción</span>
+                                @endif
+                            </td>
+                            <td style="font-weight:700;">
+                                Bs. {{ number_format($bono->obtenerMontoReal($empleado->cargo->salario_base ?? 0), 2) }}
+                                @if(!is_null($bono->monto))
+                                    <div style="font-size:11px;font-weight:400;color:var(--accent);margin-top:2px;">(Personalizado)</div>
+                                @endif
+                            </td>
+                            <td>
+                                <span style="font-size:12px;color:var(--text-secondary);">
+                                    {{ is_null($bono->monto) ? 'Catálogo (' . ($bono->concepto->calculo == 'fijo' ? 'Monto Fijo' : 'Porcentaje') . ')' : 'Monto fijo manual' }}
+                                </span>
+                            </td>
+                            <td>
+                                @can('nomina.empleados.editar')
+                                <form action="{{ route('nomina.empleados.bonificaciones.destroy', [$empleado, $bono]) }}" method="POST" onsubmit="return confirm('\u00bfRetirar este concepto del trabajador?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-sm" style="color:var(--accent-danger);background:none;border:1px solid var(--accent-danger);padding:3px 10px;" title="Retirar">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                                @endcan
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" style="text-align:center;padding:30px;color:var(--text-secondary);">
+                                <i class="fa-solid fa-calculator" style="font-size:32px;opacity:0.2;margin-bottom:10px;display:block;"></i>
+                                No hay conceptos individuales asignados a este trabajador.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{-- MODAL ASIGNAR CONCEPTO INDIVIDUAL --}}
+@can('nomina.empleados.editar')
+<div id="modalAddConcepto" tabindex="-1" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-card);border-radius:12px;width:100%;max-width:500px;margin:auto;box-shadow:0 10px 30px rgba(0,0,0,0.2);overflow:hidden;border:1px solid var(--border);">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="margin:0;font-size:16px;font-weight:600;"><i class="fa-solid fa-plus-circle" style="color:var(--accent);margin-right:8px;"></i>Asignar Concepto Individual</h5>
+            <button type="button" onclick="document.getElementById('modalAddConcepto').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-secondary);">&times;</button>
+        </div>
+        <form method="POST" action="{{ route('nomina.empleados.bonificaciones.store', $empleado) }}" style="padding:20px;">
+            @csrf
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label">Concepto de Nómina *</label>
+                <select name="concepto_nomina_id" class="form-control" required style="width:100%;" id="selectConceptoInd" onchange="actualizarInfoConcepto()">
+                    <option value="">— Seleccionar Concepto —</option>
+                    @foreach($conceptos as $c)
+                        <option value="{{ $c->id }}" 
+                            data-tipo="{{ ucfirst($c->tipo) }}"
+                            data-calculo="{{ $c->calculo === 'fijo' ? 'Monto Fijo' : 'Porcentaje' }}"
+                            data-valor="{{ $c->calculo === 'fijo' ? 'Bs. ' . number_format($c->valor, 2) : number_format($c->valor, 2) . '%' }}"
+                            data-desc="{{ $c->descripcion ?? 'Sin descripción en el catálogo.' }}">
+                            {{ $c->codigo }} - {{ $c->nombre }}
+                        </option>
+                    @endforeach
+                </select>
+                <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Seleccione el bono o deducción a asignar al trabajador.</div>
+            </div>
+
+            {{-- Panel de Vista Previa (Solo Lectura) --}}
+            <div id="previewConcepto" style="display:none;background:rgba(0,0,0,0.02);border:1px solid var(--border);border-radius:8px;padding:15px;margin-bottom:24px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <div>
+                        <div style="font-size:11px;color:var(--text-secondary);">TIPO DE CONCEPTO</div>
+                        <div id="prevTipo" style="font-weight:600;font-size:13px;">-</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px;color:var(--text-secondary);">MÉTODO DE CÁLCULO</div>
+                        <div id="prevCalculo" style="font-weight:600;font-size:13px;color:var(--accent-3);">-</div>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:11px;color:var(--text-secondary);">VALOR DEFINIDO</div>
+                    <div id="prevValor" style="font-weight:700;font-size:18px;">-</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:var(--text-secondary);">DESCRIPCIÓN DEL CATÁLOGO</div>
+                    <div id="prevDesc" style="font-size:12px;color:var(--text-secondary);line-height:1.4;">-</div>
+                </div>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-secondary);">
+                    <i class="fa-solid fa-lock" style="margin-right:4px;opacity:0.7;"></i>
+                    <em>Los valores provienen del catálogo principal y no pueden ser modificados individualmente por seguridad y auditoría.</em>
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('modalAddConcepto').style.display='none'">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btnAsignarConcepto" disabled><i class="fa-solid fa-save"></i> Asignar al Trabajador</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
+
 <div style="margin-top:16px;"><a href="{{ route('nomina.empleados.index') }}" class="btn btn-outline">← Volver</a></div>
 
 <script>
@@ -568,7 +729,7 @@ function showTab(id) {
 }
 // Activar tab por hash o default perfil
 const hash = location.hash.replace('#','') || 'perfil';
-showTab(['perfil','salud','direccion','familiares','historial','formacion'].includes(hash) ? hash : 'perfil');
+showTab(['perfil','salud','direccion','familiares','historial','formacion','bonificaciones'].includes(hash) ? hash : 'perfil');
 // Actualizar hash al cambiar tab
 document.querySelectorAll('.emp-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -576,19 +737,6 @@ document.querySelectorAll('.emp-tab').forEach(btn => {
     });
 });
 
-// ── Toggle campo "cargo libre" ────────────────────────────────
-const hCargo = document.getElementById('hCargo');
-const hCargoTextoWrap = document.getElementById('hCargoTextoWrap');
-function toggleCargoTexto() {
-    const tieneCargoSistema = hCargo.value !== '';
-    hCargoTextoWrap.style.display = tieneCargoSistema ? 'none' : 'block';
-    if (tieneCargoSistema) {
-        // Limpiar el campo cuando se selecciona un cargo del sistema
-        hCargoTextoWrap.querySelector('input').value = '';
-    }
-}
-hCargo.addEventListener('change', toggleCargoTexto);
-// Aplicar estado inicial al cargar la página
 
 // ── Toggle nivel idioma ────────────────────────────────────────
 function toggleNivelIdioma() {
@@ -601,7 +749,31 @@ function toggleNivelIdioma() {
         if (sel) sel.value = '';
     }
 }
+// ── Preview de Concepto Individual ──────────────────────────────
+function actualizarInfoConcepto() {
+    const select = document.getElementById('selectConceptoInd');
+    const preview = document.getElementById('previewConcepto');
+    const btn = document.getElementById('btnAsignarConcepto');
+    
+    if (!select.value) {
+        preview.style.display = 'none';
+        btn.disabled = true;
+        return;
+    }
+    
+    const option = select.options[select.selectedIndex];
+    
+    document.getElementById('prevTipo').textContent = option.getAttribute('data-tipo');
+    document.getElementById('prevTipo').style.color = option.getAttribute('data-tipo') === 'Asignacion' ? '#27ae60' : '#e74c3c';
+    
+    document.getElementById('prevCalculo').textContent = option.getAttribute('data-calculo');
+    document.getElementById('prevValor').textContent = option.getAttribute('data-valor');
+    document.getElementById('prevDesc').textContent = option.getAttribute('data-desc');
+    
+    preview.style.display = 'block';
+    btn.disabled = false;
+}
+
 document.addEventListener('DOMContentLoaded', toggleNivelIdioma);
-toggleCargoTexto();
 </script>
 @endsection

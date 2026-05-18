@@ -9,6 +9,7 @@ use App\Models\Causacion;
 use App\Models\Compromiso;
 use App\Models\Ingreso;
 use App\Models\Nomina;
+use App\Models\NominaDetalle;
 use App\Models\OrdenCompra;
 use App\Models\OrdenPago;
 use App\Models\Pago;
@@ -70,7 +71,7 @@ class PdfController extends Controller
         return $pdf->stream("orden-pago-{$orden->numero}.pdf");
     }
 
-    // ── NÓMINA ────────────────────────────────────────────────────────────────
+    // ── NÓMINA (reporte general) ─────────────────────────────────────
 
     public function nomina(Nomina $nomina)
     {
@@ -81,6 +82,22 @@ class PdfController extends Controller
             ->setPaper('legal', 'landscape');
 
         return $pdf->stream("nomina-{$nomina->numero}.pdf");
+    }
+
+    // ── RECIBO INDIVIDUAL POR EMPLEADO ───────────────────────────
+    public function reciboEmpleado(Nomina $nomina, NominaDetalle $detalle)
+    {
+        $this->authorize('nomina.ver');
+        abort_unless($detalle->nomina_id === $nomina->id, 403);
+
+        $nomina->load(['aprobadoPor']);
+        $detalle->load(['empleado.cargo']);
+
+        $pdf = Pdf::loadView('pdf.nomina_recibo', compact('nomina', 'detalle'))
+            ->setPaper('letter', 'portrait');
+
+        $empleadoNombre = str_replace(' ', '_', $detalle->empleado?->nombre_completo ?? 'empleado');
+        return $pdf->stream("recibo-{$nomina->numero}-{$empleadoNombre}.pdf");
     }
 
     // ── RECIBO DE INGRESO ─────────────────────────────────────────────────────

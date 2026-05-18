@@ -71,6 +71,40 @@
   </tfoot>
 </table>
 
+@if($nomina->retenciones->count() > 0)
+<div class="section-title">Retenciones Fiscales / Institucionales</div>
+<table class="detail-table" style="width: 60%;">
+  <thead>
+    <tr>
+      <th>Retención</th>
+      <th class="text-right">Porcentaje</th>
+      <th class="text-right">Base de Cálculo</th>
+      <th class="text-right">Monto Retenido</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach($nomina->retenciones as $retencion)
+    <tr>
+      <td>{{ $retencion->retencion->nombre ?? 'Retención' }}</td>
+      <td class="text-right">{{ number_format($retencion->porcentaje_aplicado, 2) }}%</td>
+      <td class="text-right">{{ number_format($retencion->monto_base, 2) }}</td>
+      <td class="text-right" style="color:#c62828">{{ number_format($retencion->monto_retenido, 2) }}</td>
+    </tr>
+    @endforeach
+  </tbody>
+  <tfoot>
+    <tr style="background:#f3f4f6; font-weight:bold;">
+      <td colspan="3" class="text-right">TOTAL RETENIDO</td>
+      <td class="text-right" style="color:#c62828">{{ number_format($nomina->retenciones->sum('monto_retenido'), 2) }}</td>
+    </tr>
+    <tr style="background:#e0e7ff; font-weight:bold;">
+      <td colspan="3" class="text-right">NETO FINAL (A DISPERSAR)</td>
+      <td class="text-right" style="color:#1e40af">{{ number_format($nomina->total_neto - $nomina->retenciones->sum('monto_retenido'), 2) }}</td>
+    </tr>
+  </tfoot>
+</table>
+@endif
+
 <div class="section-title">Trazabilidad</div>
 <table class="meta-grid">
   <tr>
@@ -90,9 +124,6 @@
 </table>
 
 <div class="firmas">
-  <div class="firma-celda">
-    <div class="firma-linea">Jefe de Nómina<br><strong>{{ $nomina->creadoPor->name ?? '______________________' }}</strong></div>
-  </div>
   <div class="firma-celda">
     <div class="firma-linea">Jefe de Recursos Humanos<br><strong>______________________</strong></div>
   </div>

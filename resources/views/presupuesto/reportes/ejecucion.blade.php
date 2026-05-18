@@ -42,32 +42,51 @@
         @endif
     </div>
 
-    {{-- Selector de partida --}}
-    @if($ejercicioActivo && $todasPartidas->count())
-    <div style="min-width:320px;">
-        <form method="GET" action="{{ route('presupuesto.reportes.ejecucion') }}" id="form-filtro-partida">
-            <div style="display:flex;gap:8px;align-items:center;">
-                <div style="flex:1;">
-                    <label style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;display:block;margin-bottom:4px;">
-                        <i class="fa-solid fa-layer-group" style="margin-right:3px;"></i>Filtrar por Partida
-                    </label>
-                    <select name="partida_id" class="form-control" style="font-size:12px;" onchange="this.form.submit()" id="select-partida">
-                        <option value="">— Todas las partidas —</option>
-                        @foreach($todasPartidas as $p)
-                        <option value="{{ $p->id }}"
-                            {{ $filtroPartida == $p->id ? 'selected' : '' }}>
-                            {{ $p->codigo }} · {{ Str::limit($p->descripcion, 30) }}
-                        </option>
-                        @endforeach
-                    </select>
+    {{-- Selector de partida + Exportar PDF --}}
+    @if($ejercicioActivo)
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+
+        @if($todasPartidas->count())
+        <div style="min-width:300px;">
+            <form method="GET" action="{{ route('presupuesto.reportes.ejecucion') }}" id="form-filtro-partida">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <div style="flex:1;">
+                        <label style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;display:block;margin-bottom:4px;">
+                            <i class="fa-solid fa-layer-group" style="margin-right:3px;"></i>Filtrar por Partida
+                        </label>
+                        <select name="partida_id" class="form-control" style="font-size:12px;" onchange="this.form.submit()" id="select-partida">
+                            <option value="">— Todas las partidas —</option>
+                            @foreach($todasPartidas as $p)
+                            <option value="{{ $p->id }}"
+                                {{ $filtroPartida == $p->id ? 'selected' : '' }}>
+                                {{ $p->codigo }} · {{ Str::limit($p->descripcion, 30) }}
+                            </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @if($filtroPartida)
+                    <a href="{{ route('presupuesto.reportes.ejecucion') }}" class="btn btn-outline btn-sm" style="margin-top:18px;" title="Ver todas">
+                        <i class="fa-solid fa-xmark"></i>
+                    </a>
+                    @endif
                 </div>
-                @if($filtroPartida)
-                <a href="{{ route('presupuesto.reportes.ejecucion') }}" class="btn btn-outline btn-sm" style="margin-top:18px;" title="Ver todas">
-                    <i class="fa-solid fa-xmark"></i>
-                </a>
-                @endif
-            </div>
+            </form>
+        </div>
+        @endif
+
+        {{-- Botón Exportar PDF (asíncrono vía queue) --}}
+        <form method="POST" action="{{ route('presupuesto.reportes.ejecucion.exportar') }}" style="margin-top:18px;">
+            @csrf
+            @if($filtroPartida)
+            <input type="hidden" name="partida_id" value="{{ $filtroPartida }}">
+            @endif
+            <button type="submit" class="btn btn-outline btn-sm"
+                    title="Genera el PDF en segundo plano. Disponible en Mis Exportaciones.">
+                <i class="fa-solid fa-file-pdf" style="color:#e53e3e;margin-right:5px;"></i>
+                Exportar PDF
+            </button>
         </form>
+
     </div>
     @endif
 </div>
@@ -95,8 +114,8 @@
 
 {{-- ── KPIs ─────────────────────────────────────────────────────────────── --}}
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:24px;" class="fade-up">
-        {{-- KPI: Aprobado --}}
-    <div class="card" style="padding:20px;border-left:3px solid var(--accent);">
+        {{-- KPI: Aprobado — oculto por configuración del administrador --}}
+    {{-- <div class="card" style="padding:20px;border-left:3px solid var(--accent);">
         <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px;">
             <i class="fa-solid fa-file-check" style="color:var(--accent);margin-right:4px;"></i>Aprobado
         </div>
@@ -104,7 +123,7 @@
             {{ number_format($totales['aprobado'], 2) }}
         </div>
         <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;">Bs. — monto total aprobado</div>
-    </div>
+    </div> --}}
 
     {{-- KPI: Vigente --}}
     <div class="card" style="padding:20px;border-left:3px solid #818cf8;">

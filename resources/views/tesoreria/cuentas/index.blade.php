@@ -5,13 +5,23 @@
     <span class="current">Cuentas Bancarias</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE CUENTAS BANCARIAS
+  Muestra el catálogo de cuentas de la institución.
+  Visualiza rápidamente el saldo activo agrupado, cantidad de cuentas y 
+  la vinculación entre estas cuentas y las partidas presupuestarias.
+--}}
+
     <div class="page-header fade-up" style="display:flex;align-items:center;justify-content:space-between;">
         <div>
             <h1 class="page-title">Cuentas Bancarias</h1>
             <p class="page-subtitle">Administración de cuentas institucionales</p>
         </div>
+        @can('tesoreria.cuentas.crear')
         <a href="{{ route('tesoreria.cuentas.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nueva
             Cuenta</a>
+        @endcan
     </div>
 
     {{-- Resumen --}}
@@ -102,8 +112,11 @@
                             <td><span class="badge {{ $c->getEstadoBadgeClass() }}">{{ ucfirst($c->estado) }}</span></td>
                             <td style="text-align:right;">
                                 <div style="display:flex;gap:6px;justify-content:flex-end;">
+                                    @can('tesoreria.cuentas.ver')
                                     <a href="{{ route('tesoreria.cuentas.show', $c) }}" class="btn btn-outline btn-sm"><i
                                             class="fa-solid fa-eye"></i></a>
+                                    @endcan
+                                    @can('tesoreria.cuentas.editar')
                                     <a href="{{ route('tesoreria.cuentas.edit', $c) }}" class="btn btn-outline btn-sm"><i
                                             class="fa-solid fa-pen-to-square"></i></a>
                                     <form method="POST" action="{{ route('tesoreria.cuentas.destroy', $c) }}" style="margin:0;">
@@ -114,6 +127,7 @@
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>
@@ -131,5 +145,8 @@
                 </tbody>
             </table>
         </div>
+        
+        {{-- Componente estándar de paginación --}}
+        <x-pagination :paginator="$cuentas" />
     </div>
 @endsection

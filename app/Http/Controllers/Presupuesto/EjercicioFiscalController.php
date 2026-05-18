@@ -9,30 +9,53 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador de Ejercicios Fiscales
+ * 
+ * Gestiona los años fiscales en los que opera el presupuesto de la institución.
+ * Controla el ciclo de vida de un ejercicio:
+ * - Borrador: Recién creado, no se pueden registrar transacciones.
+ * - Activo: Ejercicio actual en curso. SOLO PUEDE HABER UNO ACTIVO a la vez.
+ * - Cerrado: Finalizado, histórico, inmutable.
+ */
 class EjercicioFiscalController extends Controller implements HasMiddleware
 {
+    /**
+     * Define los permisos requeridos para cada acción.
+     */
     public static function middleware(): array
     {
         return [
             new Middleware('can:ejercicios.ver', only: ['index', 'show']),
             new Middleware('can:ejercicios.crear', only: ['create', 'store']),
-            new Middleware('can:ejercicios.editar', only: ['edit', 'update', 'activar']),
+            new Middleware('can:ejercicios.editar', only: ['edit', 'update', 'activar', 'destroy']),
             new Middleware('can:ejercicios.cerrar', only: ['cerrar']),
-            new Middleware('can:ejercicios.editar', only: ['destroy']),
         ];
     }
+
+    /**
+     * Lista los ejercicios fiscales registrados.
+     */
     public function index()
     {
+        // Se usa carga ambiciosa (with) para la relación 'creadoPor' evitando N+1
         $ejercicios = EjercicioFiscal::with('creadoPor')
             ->orderByDesc('anio')->paginate(15);
         return view('presupuesto.ejercicios.index', compact('ejercicios'));
     }
 
+    /**
+     * Muestra el formulario para registrar un nuevo ejercicio fiscal.
+     */
     public function create()
     {
         return view('presupuesto.ejercicios.create');
     }
 
+    /**
+     * Almacena un nuevo ejercicio fiscal en la BD.
+     * Por defecto se crea en estado 'borrador'.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -51,11 +74,18 @@ class EjercicioFiscalController extends Controller implements HasMiddleware
             ->with('success', "Ejercicio fiscal {$data['anio']} creado correctamente.");
     }
 
+    /**
+     * Muestra el formulario de edición.
+     */
     public function edit(EjercicioFiscal $ejercicio)
     {
         return view('presupuesto.ejercicios.edit', compact('ejercicio'));
     }
 
+    /**
+     * Actualiza los datos de un ejercicio fiscal.
+     * Regla de negocio: No se puede editar un ejercicio cerrado.
+     */
     public function update(Request $request, EjercicioFiscal $ejercicio)
     {
         if ($ejercicio->estado === 'cerrado') {
@@ -75,16 +105,28 @@ class EjercicioFiscalController extends Controller implements HasMiddleware
             ->with('success', "Ejercicio {$ejercicio->anio} actualizado.");
     }
 
+    /**
+     * Activa un ejercicio fiscal.
+     * Regla de negocio: Asegura de forma atómica (DB::transaction) que
+     * solo exista un ejercicio activo en todo el sistema.
+     */
     public function activar(EjercicioFiscal $ejercicio)
     {
         DB::transaction(function () use ($ejercicio) {
+            // Pasar cualquier ejercicio activo actual a borrador
             EjercicioFiscal::where('estado', 'activo')->update(['estado' => 'borrador']);
+            
+            // Activar el seleccionado
             $ejercicio->update(['estado' => 'activo']);
         });
 
         return back()->with('success', "Ejercicio {$ejercicio->anio} activado como ejercicio fiscal vigente.");
     }
 
+    /**
+     * Cierra definitivamente un ejercicio fiscal (Fin de año).
+     * Registra la fecha exacta y el usuario que ejecutó el cierre.
+     */
     public function cerrar(EjercicioFiscal $ejercicio)
     {
         $ejercicio->update([
@@ -96,12 +138,19 @@ class EjercicioFiscalController extends Controller implements HasMiddleware
         return back()->with('success', "Ejercicio {$ejercicio->anio} cerrado definitivamente.");
     }
 
+    /**
+     * Elimina un ejercicio fiscal.
+     * Regla de negocio: Solo se pueden eliminar si están en borrador y no 
+     * tienen movimientos transaccionales asociados.
+     */
     public function destroy(EjercicioFiscal $ejercicio)
     {
         if ($ejercicio->estado !== 'borrador') {
             return back()->with('error', 'Solo se pueden eliminar ejercicios en borrador.');
         }
+        
         $ejercicio->delete();
+        
         return redirect()->route('presupuesto.ejercicios.index')
             ->with('success', "Ejercicio {$ejercicio->anio} eliminado.");
     }

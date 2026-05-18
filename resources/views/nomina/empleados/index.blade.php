@@ -2,10 +2,16 @@
 @section('title', 'Empleados')
 @section('breadcrumb')
     <span>Nómina y Personal</span>
-    <i class="fa-solid fa-chevron-right" style="font-size:9px;opacity:.5"></i>
+    <span class="breadcrumb-sep">›</span>
     <span class="current">Empleados</span>
 @endsection
 @section('content')
+
+{{-- 
+  VISTA INDEX DE EMPLEADOS
+  Listado general del personal. Permite buscar y filtrar por estado y tipo de nómina.
+--}}
+
 <div class="page-header fade-up">
     <h1 class="page-title">Empleados</h1>
     <p class="page-subtitle">Personal registrado en el sistema de nómina</p>
@@ -25,7 +31,10 @@
                     @foreach(['fijo','contratado','obrero'] as $t)<option value="{{ $t }}" {{ request('tipo')==$t?'selected':'' }}>{{ ucfirst($t) }}</option>@endforeach
                 </select>
             </form>
+            
+            @can('nomina.empleados.crear')
             <a href="{{ route('nomina.empleados.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nuevo Empleado</a>
+            @endcan
         </div>
     </div>
     <div class="table-wrap">
@@ -42,8 +51,13 @@
                 <td><span class="badge {{ $emp->estadoBadge() }}">{{ ucfirst($emp->estado) }}</span></td>
                 <td style="font-size:12px;color:var(--text-secondary);">{{ $emp->fecha_ingreso->format('d/m/Y') }}</td>
                 <td style="display:flex;gap:6px;">
+                    @can('nomina.empleados.ver')
                     <a href="{{ route('nomina.empleados.show', $emp) }}" class="btn btn-outline btn-sm">Ver</a>
+                    @endcan
+                    
+                    @can('nomina.empleados.editar')
                     <a href="{{ route('nomina.empleados.edit', $emp) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i></a>
+                    @endcan
                 </td>
             </tr>
             @empty
@@ -52,6 +66,7 @@
             </tbody>
         </table>
     </div>
-    @if($empleados->hasPages())<div class="pagination">{{ $empleados->links() }}</div>@endif
+    
+    <x-pagination :paginator="$empleados" />
 </div>
 @endsection
