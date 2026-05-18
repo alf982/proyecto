@@ -94,7 +94,7 @@
 <div class="header">
   <div class="header-inner">
     <div class="header-logo">
-      <img src="{{ public_path('images/logo-cep.png') }}" alt="Logo CEP">
+      <img src="{{ public_path('images/logo-cep-pdf.png') }}" alt="Logo CEP">
     </div>
     <div class="header-info">
       <div class="inst-name">Contraloría del Estado Portuguesa</div>
