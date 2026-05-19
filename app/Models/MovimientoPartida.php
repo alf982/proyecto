@@ -147,7 +147,27 @@ class MovimientoPartida extends Model implements Auditable
     /** Genera automáticamente un número correlativo secuencial anual (Ej: MP-2026-0001) */
     public static function generarNumero(int $anio): string
     {
-        $ultimo = static::whereYear('created_at', $anio)->max('id') ?? 0;
-        return 'MP-' . $anio . '-' . str_pad($ultimo + 1, 4, '0', STR_PAD_LEFT);
+        do {
+            $ultimo = static::withTrashed()
+                ->where(function($query) use ($anio) {
+                    $query->whereYear('created_at', $anio)
+                          ->orWhere('numero', 'like', "MP-{$anio}-%");
+                })
+                ->orderByDesc('id')
+                ->value('numero');
+
+            $seq = 1;
+            if ($ultimo) {
+                $partes = explode('-', $ultimo);
+                $secuenciaTexto = end($partes);
+                if (is_numeric($secuenciaTexto)) {
+                    $seq = ((int) $secuenciaTexto) + 1;
+                }
+            }
+
+            $numero = 'MP-' . $anio . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+        } while (static::withTrashed()->where('numero', $numero)->exists());
+
+        return $numero;
     }
 }

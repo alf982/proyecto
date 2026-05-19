@@ -97,7 +97,10 @@ class CuentaBancaria extends Model implements Auditable
     }
 
     public static function generarCodigo(): string {
-        $ultimo = static::max('id') ?? 0;
-        return 'CTA-' . str_pad($ultimo + 1, 4, '0', STR_PAD_LEFT);
+        $seq = 1;
+        do {
+            $codigo = 'CTA-' . str_pad($seq++, 4, '0', STR_PAD_LEFT);
+        } while (static::withTrashed()->where('codigo', $codigo)->exists());
+        return $codigo;
     }
 }

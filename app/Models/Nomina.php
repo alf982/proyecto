@@ -59,8 +59,11 @@ class Nomina extends Model
 
     public static function generarNumero(int $anio): string
     {
-        $ultimo = static::withTrashed()->whereYear('created_at', $anio)->count();
-        return 'NOM-' . $anio . '-' . str_pad($ultimo + 1, 4, '0', STR_PAD_LEFT);
+        $seq = 1;
+        do {
+            $numero = 'NOM-' . $anio . '-' . str_pad($seq++, 4, '0', STR_PAD_LEFT);
+        } while (static::withTrashed()->where('numero', $numero)->exists());
+        return $numero;
     }
 
     public function estadoBadge(): string
