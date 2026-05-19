@@ -106,7 +106,7 @@
             flex-shrink: 0;
             background: #ffffff;
             padding: 3px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
         }
 
         .logo-icon img {
@@ -1110,6 +1110,209 @@
                 }
             }
         }
+
+        /* ── Modal Acerca de ──────────────────────────────────────── */
+        .about-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 12, 20, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .about-modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .about-modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 440px;
+            max-width: 90vw;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .about-modal-overlay.show .about-modal-box {
+            transform: scale(1);
+        }
+
+        .about-modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .about-modal-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+        }
+
+        .about-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            transition: color var(--transition);
+        }
+
+        .about-modal-close:hover {
+            color: var(--accent-danger);
+        }
+
+        .about-modal-body {
+            padding: 24px 20px;
+            text-align: center;
+        }
+
+        .about-logo-wrap {
+            width: 80px;
+            height: 80px;
+            background: #ffffff;
+            border-radius: 16px;
+            margin: 0 auto 16px;
+            padding: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            display: grid;
+            place-items: center;
+        }
+
+        .about-logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .about-app-name {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .about-app-subtitle {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .about-app-desc {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .about-tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 20px;
+        }
+
+        .tech-pill {
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .tech-pill.accent {
+            background: rgba(79, 142, 247, 0.1);
+            border-color: rgba(79, 142, 247, 0.2);
+            color: var(--accent);
+        }
+
+        .about-version-info {
+            font-size: 10.5px;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            line-height: 1.5;
+        }
+
+        /* ── Tarjeta del Desarrollador ── */
+        .about-developer-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin: 18px 0;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-align: left;
+        }
+
+        .about-developer-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            display: grid;
+            place-items: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(79, 142, 247, 0.25);
+        }
+
+        .about-developer-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .about-developer-role {
+            font-size: 10.5px;
+            color: var(--accent);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .about-developer-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+
+        .about-developer-email {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .about-developer-email i {
+            font-size: 10px;
+            opacity: 0.7;
+        }
     </style>
     @stack('styles')
 </head>
@@ -1346,8 +1549,7 @@
                     <div class="nav-label" style="margin-top:10px;">Configuración Fiscal</div>
                     @can('retenciones.ver')
                         <a href="{{ route('retenciones.index') }}"
-                            class="nav-item {{ request()->routeIs('retenciones.*') ? 'active' : '' }}"
-                            id="nav-retenciones">
+                            class="nav-item {{ request()->routeIs('retenciones.*') ? 'active' : '' }}" id="nav-retenciones">
                             <i class="fa-solid fa-percent"></i> Retenciones
                         </a>
                     @endcan
@@ -1429,9 +1631,9 @@
                             if (ejBtn) { ejBtn.onclick = function () { var d = document.getElementById('ej-dropdown'); d.style.display = d.style.display === 'none' ? 'block' : 'none'; }; }
                         </script>
                     @endif
-                    <a href="{{ route('dashboard') }}" class="icon-btn" title="Dashboard">
-                        <i class="fa-solid fa-gauge-high"></i>
-                    </a>
+                    <button type="button" class="icon-btn" id="btn-about-app" title="Acerca de la Aplicación">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
                 </div>
             </header>
 
@@ -1485,6 +1687,70 @@
         </a>
     </nav>
 
+    <!-- MODAL ACERCA DE LA APLICACIÓN -->
+    <div class="about-modal-overlay" id="about-modal">
+        <div class="about-modal-box">
+            <div class="about-modal-header">
+                <span class="about-modal-title">Información del Sistema</span>
+                <button type="button" class="about-modal-close" id="about-modal-close" aria-label="Cerrar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="about-modal-body">
+                <div class="about-logo-wrap">
+                    <img src="{{ asset('images/logo-cep.png') }}" alt="Logo CEP">
+                </div>
+                <h3 class="about-app-name">Sistema Administrativo · CEP</h3>
+                <div class="about-app-subtitle">Contraloría del Estado Portuguesa</div>
+                <p class="about-app-desc">
+                    Plataforma oficial de control interno de la <strong>Contraloría del Estado Portuguesa</strong>,
+                    diseñada para integrar y automatizar las operaciones presupuestarias, financieras, contables y de
+                    nómina de la institución.
+                </p>
+
+                <!-- Tarjeta del Desarrollador -->
+                <div class="about-developer-card" style="margin-bottom: 12px;">
+                    <div class="about-developer-avatar">LA</div>
+                    <div class="about-developer-info">
+                        <div class="about-developer-role">Desarrollo y Arquitectura de Software</div>
+                        <div class="about-developer-name">Luis Alfonso Escalona Ahing</div>
+                        <div class="about-developer-email">
+                            <i class="fa-solid fa-envelope"></i> luis123alfonso@gmail.com
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta del Supervisor -->
+                <div class="about-developer-card" style="margin-top: 0; margin-bottom: 18px;">
+                    <div class="about-developer-avatar"
+                        style="background: linear-gradient(135deg, var(--accent-3), #10b981);">SP</div>
+                    <div class="about-developer-info">
+                        <div class="about-developer-role" style="color: var(--accent-3);">Supervisión del Proyecto</div>
+                        <div class="about-developer-name">Ingenieros de Dirección Técnica</div>
+                        <div class="about-developer-email">
+                            <i class="fa-solid fa-user-tie"></i> Marines Peréz
+                            <i class="fa-solid fa-user-tie"></i> Maria Rodriguez
+                            <i class="fa-solid fa-user-tie"></i> Denis Carvajal
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-tech-stack">
+                    <span class="tech-pill accent">Laravel 11</span>
+                    <span class="tech-pill">Blade Templates</span>
+                    <span class="tech-pill">Alpine.js</span>
+                    <span class="tech-pill">Tailwind CSS</span>
+                    <span class="tech-pill">MySQL / MariaDB</span>
+                </div>
+                <div class="about-version-info">
+                    Versión 1.0.0 (Estable)<br>
+                    Sistema desarrollado para las pasantias UNEFA 01-2026<br>
+                    Uso exclusivo institucional &copy; {{ date('Y') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
     @stack('scripts')
     <script>
         (function () {
@@ -1527,6 +1793,37 @@
                     overlay.classList.remove('show');
                 }
             });
+
+            // --- Lógica del Modal Acerca de ---
+            var aboutBtn = document.getElementById('btn-about-app');
+            var aboutModal = document.getElementById('about-modal');
+            var aboutClose = document.getElementById('about-modal-close');
+
+            if (aboutBtn && aboutModal) {
+                aboutBtn.addEventListener('click', function () {
+                    aboutModal.classList.add('show');
+                });
+
+                var closeModal = function () {
+                    aboutModal.classList.remove('show');
+                };
+
+                if (aboutClose) {
+                    aboutClose.addEventListener('click', closeModal);
+                }
+
+                aboutModal.addEventListener('click', function (e) {
+                    if (e.target === aboutModal) {
+                        closeModal();
+                    }
+                });
+
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape' && aboutModal.classList.contains('show')) {
+                        closeModal();
+                    }
+                });
+            }
         })();
     </script>
 </body>
