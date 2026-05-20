@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ExportarInventarioBienesJob;
+use App\Models\CategoriaBien;
 use App\Models\ArqueoCaja;
 use App\Models\Bien;
 use App\Models\Causacion;
@@ -152,25 +152,28 @@ class PdfController extends Controller
         return $pdf->stream("recepcion-{$recepcion->numero}.pdf");
     }
 
-    // ── INVENTARIO DE BIENES (asíncrono vía Job) ──────────────────────────────
+    // ── INVENTARIO DE BIENES (síncrono — stream directo) ──────────────────────
     /**
-     * En lugar de generar el PDF aquí (bloqueando el servidor varios segundos
-     * con cientos de registros), se despacha un Job que lo genera en background.
-     * El usuario es redirigido a su carpeta de exportaciones para descargarlo.
+     * Genera el PDF del inventario de bienes directamente y lo muestra
+     * en el visor del navegador (mismo comportamiento que los otros PDFs).
      */
     public function inventarioBienes(Request $request)
     {
         $this->authorize('bienes.ver');
 
-        ExportarInventarioBienesJob::dispatch(
-            userId:      auth()->id(),
-            categoriaId: $request->integer('categoria') ?: null,
-            unidadId:    $request->integer('unidad') ?: null,
-            estado:      $request->estado ?: null,
-        );
+        $bienes = Bien::with(['categoria', 'unidadEjecutora'])
+            ->when($request->integer('categoria') ?: null, fn($q, $v) => $q->where('categoria_bien_id', $v))
+            ->when($request->integer('unidad') ?: null,    fn($q, $v) => $q->where('unidad_ejecutora_id', $v))
+            ->when($request->estado ?: null,               fn($q, $v) => $q->where('estado', $v))
+            ->orderBy('numero_inventario')
+            ->get();
 
-        return redirect()->route('pdf-exports.index')
-            ->with('info', 'El inventario se está generando. Aparecerá en esta página en unos segundos — recarga para verlo.');
+        $nombreArchivo = 'inventario-bienes-' . now()->format('Y-m-d') . '.pdf';
+
+        $pdf = Pdf::loadView('pdf.inventario_bienes', compact('bienes'))
+            ->setPaper('legal', 'landscape');
+
+        return $pdf->stream($nombreArchivo);
     }
     // ── COMPROMISO PRESUPUESTARIO ──────────────────────────────────────────
     public function compromiso(Compromiso $compromiso)

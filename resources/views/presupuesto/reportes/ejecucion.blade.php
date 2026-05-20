@@ -74,18 +74,16 @@
         </div>
         @endif
 
-        {{-- Botón Exportar PDF (asíncrono vía queue) --}}
-        <form method="POST" action="{{ route('presupuesto.reportes.ejecucion.exportar') }}" style="margin-top:18px;">
-            @csrf
-            @if($filtroPartida)
-            <input type="hidden" name="partida_id" value="{{ $filtroPartida }}">
-            @endif
-            <button type="submit" class="btn btn-outline btn-sm"
-                    title="Genera el PDF en segundo plano. Disponible en Mis Exportaciones.">
-                <i class="fa-solid fa-file-pdf" style="color:#e53e3e;margin-right:5px;"></i>
-                Exportar PDF
-            </button>
-        </form>
+        {{-- Botón Exportar PDF (stream directo, abre en pestaña nueva) --}}
+        @php
+            $exportUrl = route('presupuesto.reportes.ejecucion.exportar', $filtroPartida ? ['partida_id' => $filtroPartida] : []);
+        @endphp
+        <a href="{{ $exportUrl }}" target="_blank"
+           class="btn btn-outline btn-sm" style="margin-top:18px;"
+           title="Abre el PDF del reporte en una pestaña nueva.">
+            <i class="fa-solid fa-file-pdf" style="color:#e53e3e;margin-right:5px;"></i>
+            Exportar PDF
+        </a>
 
     </div>
     @endif

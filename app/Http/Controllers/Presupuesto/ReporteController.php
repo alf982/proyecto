@@ -2,7 +2,6 @@
 namespace App\Http\Controllers\Presupuesto;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\ExportarReporteEjecucionJob;
 use App\Models\Causacion;
 use App\Models\Compromiso;
 use App\Models\CreditoPresupuestario;
@@ -15,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * Controlador de Reportes Presupuestarios (Ejecución)
@@ -262,22 +262,113 @@ class ReporteController extends Controller implements HasMiddleware
     }
 
     /**
-     * Despacha el reporte de ejecución a la queue para generarlo en background.
-     * El usuario es redirigido a sus exportaciones donde podrá descargar el PDF.
+     * Genera el reporte de ejecución presupuestaria directamente en PDF
+     * y lo muestra en el visor del navegador (stream directo, sin redirección).
      */
     public function exportar(Request $request)
     {
         $ejercicioActivo = EjercicioFiscal::where('estado', 'activo')->first();
-
         abort_unless($ejercicioActivo, 404, 'No hay un ejercicio fiscal activo.');
 
-        ExportarReporteEjecucionJob::dispatch(
-            userId:      auth()->id(),
-            ejercicioId: $ejercicioActivo->id,
-            filtros:     $request->only(['partida_id', 'unidad_id']),
-        );
+        $filtroPartida = $request->input('partida_id');
+        $filtroUnidad  = $request->input('unidad_id');
 
-        return redirect()->route('pdf-exports.index')
-            ->with('info', 'El reporte de ejecución presupuestaria se está generando. Aparecerá en esta página en unos segundos — recarga para verlo.');
+        // ── Créditos y partidas ───────────────────────────────────────
+        $creditos = CreditoPresupuestario::with('partida')
+            ->where('ejercicio_fiscal_id', $ejercicioActivo->id)
+            ->when($filtroPartida, fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida))
+            ->get();
+
+        $partidaIds = $creditos->pluck('partida_presupuestaria_id')->unique()->filter()->values();
+
+        $qPartidas = $partidaIds->isNotEmpty()
+            ? PartidaPresupuestaria::whereIn('id', $partidaIds)
+            : PartidaPresupuestaria::activas()->where('saldo_actual', '>', 0);
+
+        if ($filtroPartida) {
+            $qPartidas->where('id', $filtroPartida);
+        }
+
+        // ── Totales ──────────────────────────────────────────────
+        $totalAprobado   = (float)(clone $qPartidas)->sum('monto_aprobado') ?: (float)(clone $qPartidas)->sum('saldo_actual');
+        $totalVigente    = (float)(clone $qPartidas)->sum('monto_vigente') ?: $totalAprobado;
+        $totalDisponible = (float)(clone $qPartidas)->sum('saldo_actual');
+
+        $totalComprometido = (float) Compromiso::where('ejercicio_fiscal_id', $ejercicioActivo->id)
+            ->whereIn('estado', ['borrador', 'aprobado'])
+            ->when($filtroPartida, fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida))
+            ->sum('monto');
+
+        $totalCausado = (float) Causacion::where('ejercicio_fiscal_id', $ejercicioActivo->id)
+            ->where('estado', 'aprobada')
+            ->when($filtroPartida, fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida))
+            ->sum('monto_causado');
+
+        $totalPagado = (float) Pago::where('ejercicio_fiscal_id', $ejercicioActivo->id)
+            ->where('estado', 'procesado')
+            ->when($filtroPartida, fn($q) => $q->whereHas('causacion', fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida)))
+            ->sum('monto_pagado');
+
+        $totales = [
+            'aprobado'         => $totalAprobado,
+            'vigente'          => $totalVigente,
+            'disponible'       => $totalDisponible,
+            'comprometido'     => $totalComprometido,
+            'causado'          => $totalCausado,
+            'pagado'           => $totalPagado,
+            'pct_ejec'         => $totalVigente > 0 ? round(($totalCausado      / $totalVigente) * 100, 1) : 0,
+            'pct_comprometido' => $totalVigente > 0 ? round(($totalComprometido / $totalVigente) * 100, 1) : 0,
+            'pct_disponible'   => $totalVigente > 0 ? round(($totalDisponible   / $totalVigente) * 100, 1) : 0,
+        ];
+
+        // ── Por partida (resumen) ────────────────────────────────────
+        $comprometidoPorPartida = Compromiso::where('ejercicio_fiscal_id', $ejercicioActivo->id)
+            ->whereIn('estado', ['borrador', 'aprobado'])
+            ->when($filtroPartida, fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida))
+            ->select('partida_presupuestaria_id', DB::raw('SUM(monto) as total_comprometido'))
+            ->groupBy('partida_presupuestaria_id')
+            ->pluck('total_comprometido', 'partida_presupuestaria_id');
+
+        $partidasParaListar = $creditos->filter(fn($c) => $c->partida !== null)->pluck('partida')->unique('id');
+        if ($partidasParaListar->isEmpty()) {
+            $qBase = PartidaPresupuestaria::activas()->where('saldo_actual', '>', 0);
+            if ($filtroPartida) $qBase->where('id', $filtroPartida);
+            $partidasParaListar = $qBase->get();
+        }
+
+        $porPartida = $partidasParaListar->map(function ($p) use ($comprometidoPorPartida) {
+            $saldoReal    = (float)($p->saldo_actual ?? 0);
+            $aprobado     = (float)($p->monto_aprobado ?? 0);
+            $vigente      = (float)($p->monto_vigente ?? 0);
+            if ($vigente === 0.0) $vigente = $aprobado > 0 ? $aprobado : $saldoReal;
+            $comprometido = (float)($comprometidoPorPartida[$p->id] ?? 0);
+
+            return [
+                'codigo'       => $p->codigo,
+                'descripcion'  => $p->descripcion,
+                'aprobado'     => $aprobado,
+                'vigente'      => $vigente,
+                'disponible'   => $saldoReal,
+                'comprometido' => $comprometido,
+            ];
+        })->sortByDesc('vigente')->values();
+
+        // ── Movimientos recientes ─────────────────────────────────────
+        $ultimosMovimientos = MovimientoPartida::with('partida')
+            ->where('ejercicio_fiscal_id', $ejercicioActivo->id)
+            ->where('estado', 'confirmado')
+            ->when($filtroPartida, fn($q) => $q->where('partida_presupuestaria_id', $filtroPartida))
+            ->orderByDesc('fecha_movimiento')
+            ->take(30)
+            ->get();
+
+        $ejercicio     = $ejercicioActivo;
+        $nombreArchivo = 'reporte-ejecucion-' . $ejercicio->anio . '-' . now()->format('d-m-Y') . '.pdf';
+
+        $pdf = Pdf::loadView('pdf.reporte_ejecucion', compact(
+            'ejercicio', 'totales', 'porPartida', 'ultimosMovimientos'
+        ))->setPaper('legal', 'landscape');
+
+        return $pdf->stream($nombreArchivo);
     }
 }

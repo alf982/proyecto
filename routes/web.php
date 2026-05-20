@@ -146,7 +146,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Reportes de Ejecución
         Route::get('reportes/ejecucion', [ReporteController::class, 'ejecucion'])
             ->name('reportes.ejecucion');
-        Route::post('reportes/ejecucion/exportar', [ReporteController::class, 'exportar'])
+        Route::get('reportes/ejecucion/exportar', [ReporteController::class, 'exportar'])
             ->name('reportes.ejecucion.exportar');
 
         // Movimientos de Partidas Presupuestarias
