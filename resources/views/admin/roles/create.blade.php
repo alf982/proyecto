@@ -12,8 +12,9 @@
     </a>
 </div>
 
-<form method="POST" action="{{ route('admin.roles.store') }}">
+<form method="POST" action="{{ route('admin.roles.store') }}" id="form-rol">
 @csrf
+<input type="hidden" name="permisos_json" id="permisos_json">
 <div class="edit-layout">
     {{-- Panel izquierdo --}}
     <div class="edit-sidebar">
@@ -162,6 +163,12 @@ function toggleTodo(e) {
 document.querySelectorAll('input[name="permisos[]"]:checked').forEach(c => {
     c.closest('.perm-toggle-row').classList.add('active');
     onPermChange(c, c.className.match(/mod-perm-(\S+)/)?.[1] || '');
+});
+
+// Serializa los IDs marcados en un campo JSON antes de enviar
+document.getElementById('form-rol').addEventListener('submit', function() {
+    const ids = [...document.querySelectorAll('input[name="permisos[]"]:checked')].map(c => parseInt(c.value));
+    document.getElementById('permisos_json').value = JSON.stringify(ids);
 });
 </script>
 @endsection

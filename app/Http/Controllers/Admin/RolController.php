@@ -344,9 +344,17 @@ class RolController extends Controller implements HasMiddleware
             'icono'       => 'nullable|string|max:60',
             'color'       => 'nullable|string|max:20',
             'descripcion' => 'nullable|string|max:200',
-            'permisos'    => 'nullable|array',
-            'permisos.*'  => 'exists:permissions,id',
+            'permisos_json' => 'nullable|string',
         ]);
+
+        // Los IDs llegan como JSON para evitar el límite max_input_vars de PHP
+        $permisosIds = [];
+        if ($request->filled('permisos_json')) {
+            $decoded = json_decode($request->permisos_json, true);
+            if (is_array($decoded)) {
+                $permisosIds = array_filter(array_map('intval', $decoded));
+            }
+        }
 
         $rol = Role::create([
             'name'        => $request->name,
@@ -356,8 +364,8 @@ class RolController extends Controller implements HasMiddleware
             'descripcion' => $request->descripcion ?: null,
         ]);
         
-        if ($request->filled('permisos')) {
-            $rol->syncPermissions($request->permisos);
+        if (!empty($permisosIds)) {
+            $rol->syncPermissions($permisosIds);
         }
 
         return redirect()->route('admin.roles.index')
@@ -386,9 +394,17 @@ class RolController extends Controller implements HasMiddleware
             'icono'       => 'nullable|string|max:60',
             'color'       => 'nullable|string|max:20',
             'descripcion' => 'nullable|string|max:200',
-            'permisos'    => 'nullable|array',
-            'permisos.*'  => 'exists:permissions,id',
+            'permisos_json' => 'nullable|string',
         ]);
+
+        // Los IDs llegan como JSON para evitar el límite max_input_vars de PHP
+        $permisosIds = [];
+        if ($request->filled('permisos_json')) {
+            $decoded = json_decode($request->permisos_json, true);
+            if (is_array($decoded)) {
+                $permisosIds = array_filter(array_map('intval', $decoded));
+            }
+        }
 
         // Protección básica: no se puede renombrar al super-admin
         if ($rol->name !== 'super-admin') {
@@ -401,7 +417,7 @@ class RolController extends Controller implements HasMiddleware
         }
         
         // Reasigna los permisos seleccionados
-        $rol->syncPermissions($request->permisos ?? []);
+        $rol->syncPermissions($permisosIds);
 
         return redirect()->route('admin.roles.index')
             ->with('success', "Rol \"{$rol->name}\" actualizado correctamente.");

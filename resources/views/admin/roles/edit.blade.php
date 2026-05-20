@@ -20,8 +20,9 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('admin.roles.update', $rol) }}">
+<form method="POST" action="{{ route('admin.roles.update', $rol) }}" id="form-rol">
 @csrf @method('PUT')
+<input type="hidden" name="permisos_json" id="permisos_json">
 
 
 <div class="edit-layout">
@@ -257,5 +258,11 @@ function toggleTodo(estado) {
     @endforeach
     updateConteoGlobal();
 }
+
+// Serializa los IDs marcados en un campo JSON antes de enviar
+document.getElementById('form-rol').addEventListener('submit', function() {
+    const ids = [...document.querySelectorAll('input[name="permisos[]"]:checked')].map(c => parseInt(c.value));
+    document.getElementById('permisos_json').value = JSON.stringify(ids);
+});
 </script>
 @endsection
