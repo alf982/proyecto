@@ -16,7 +16,7 @@
 
 <div class="page-header fade-up">
     <h1 class="page-title">Panel de Control</h1>
-    <p class="page-subtitle">Bienvenido, {{ auth()->user()->name }} · {{ now()->translatedFormat('l, d \d\e F \d\e Y') }}</p>
+    <p class="page-subtitle">Bienvenido/a, {{ auth()->user()->name }} · {{ now()->translatedFormat('l, d \d\e F \d\e Y') }}</p>
 </div>
 
 {{-- ── Fila 1: Alertas operativas ─────────────────────────────────── --}}
