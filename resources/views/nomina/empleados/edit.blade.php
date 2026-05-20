@@ -133,7 +133,11 @@
                 <div class="form-row form-row-2" style="margin-top:10px;">
                     <div class="form-group">
                         <label class="form-label">Teléfono</label>
-                        <input type="text" name="telefono" value="{{ old('telefono', $empleado->telefono) }}" class="form-control" maxlength="20">
+                        <input type="text" name="telefono" id="telefono" value="{{ old('telefono', $empleado->telefono) }}"
+                               class="form-control" maxlength="13"
+                               placeholder="0412-1234567"
+                               autocomplete="tel">
+                        <small style="color:var(--text-secondary);font-size:11px;">Formato: 0412-1234567</small>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Correo Electrónico</label>
@@ -233,7 +237,12 @@
                 </div>
                 <div class="form-group" style="margin-top:10px;">
                     <label class="form-label">N° de Cuenta</label>
-                    <input type="text" name="numero_cuenta" value="{{ old('numero_cuenta', $empleado->numero_cuenta) }}" class="form-control" maxlength="30">
+                    <input type="text" name="numero_cuenta" id="numero_cuenta" value="{{ old('numero_cuenta', $empleado->numero_cuenta) }}"
+                           class="form-control" maxlength="24"
+                           placeholder="0102-0000-00-0000000000"
+                           autocomplete="off"
+                           style="font-family:monospace;letter-spacing:.03em;">
+                    <small style="color:var(--text-secondary);font-size:11px;">Formato: 0102-0000-00-0000000000 (20 dígitos)</small>
                 </div>
             </div>
         </div>
@@ -269,4 +278,77 @@
     </div>
 </div>
 </form>
+
+<script>
+// ── Máscara de teléfono venezolano: 0412-1234567 ──────────────────
+(function() {
+    const tel = document.getElementById('telefono');
+    if (!tel) return;
+
+    function maskTel(raw) {
+        const digits = raw.replace(/\D/g, '').slice(0, 11);
+        if (digits.length <= 4) return digits;
+        return digits.slice(0, 4) + '-' + digits.slice(4, 11);
+    }
+
+    tel.addEventListener('input', function() {
+        const pos = this.selectionStart;
+        const before = this.value.length;
+        this.value = maskTel(this.value);
+        const diff = this.value.length - before;
+        this.setSelectionRange(pos + diff, pos + diff);
+    });
+
+    tel.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace') {
+            const pos = this.selectionStart;
+            if (pos > 0 && this.value[pos - 1] === '-') {
+                e.preventDefault();
+                this.value = this.value.slice(0, pos - 2) + this.value.slice(pos);
+                this.setSelectionRange(pos - 2, pos - 2);
+            }
+        }
+    });
+
+    if (tel.value) tel.value = maskTel(tel.value);
+})();
+
+// ── Máscara de cuenta bancaria venezolana: 0102-0000-00-0000000000 ─
+(function() {
+    const cta = document.getElementById('numero_cuenta');
+    if (!cta) return;
+
+    function maskCuenta(raw) {
+        const digits = raw.replace(/\D/g, '').slice(0, 20);
+        let result = '';
+        if (digits.length > 0)  result += digits.slice(0, 4);
+        if (digits.length > 4)  result += '-' + digits.slice(4, 8);
+        if (digits.length > 8)  result += '-' + digits.slice(8, 10);
+        if (digits.length > 10) result += '-' + digits.slice(10, 20);
+        return result;
+    }
+
+    cta.addEventListener('input', function() {
+        const pos = this.selectionStart;
+        const before = this.value.length;
+        this.value = maskCuenta(this.value);
+        const diff = this.value.length - before;
+        this.setSelectionRange(pos + diff, pos + diff);
+    });
+
+    cta.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace') {
+            const pos = this.selectionStart;
+            if (pos > 0 && this.value[pos - 1] === '-') {
+                e.preventDefault();
+                this.value = this.value.slice(0, pos - 2) + this.value.slice(pos);
+                this.setSelectionRange(pos - 2, pos - 2);
+            }
+        }
+    });
+
+    if (cta.value) cta.value = maskCuenta(cta.value);
+})();
+</script>
+
 @endsection
