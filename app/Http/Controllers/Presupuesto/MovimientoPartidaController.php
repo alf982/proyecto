@@ -32,6 +32,8 @@ class MovimientoPartidaController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('modificaciones.ver');
+
         $ejercicioId = session('ejercicio_id');
 
         // Carga ambiciosa para optimizar el renderizado del historial
@@ -63,6 +65,8 @@ class MovimientoPartidaController extends Controller
      */
     public function create(Request $request)
     {
+        $this->authorize('modificaciones.crear');
+
         $partidas   = PartidaPresupuestaria::activas()->orderBy('codigo')->get();
         $ejercicios = EjercicioFiscal::orderByDesc('anio')->get();
         $cuentas    = CuentaBancaria::activas()->orderBy('nombre')->get();
@@ -88,6 +92,8 @@ class MovimientoPartidaController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('modificaciones.crear');
+
         $request->validate([
             'partida_presupuestaria_id'  => 'required|exists:partidas_presupuestarias,id',
             'tipo'                       => 'required|in:asignacion,credito_adicional,modificacion_entrada,ejecucion,reintegro,nota_credito,nota_debito',
@@ -202,6 +208,8 @@ class MovimientoPartidaController extends Controller
      */
     public function show(MovimientoPartida $movimiento)
     {
+        $this->authorize('modificaciones.ver');
+
         $movimiento->load(['partida', 'contrapartida', 'movimientoRelacionado.partida', 'cuentaBancaria', 'ejercicioFiscal', 'creadoPor']);
         return view('presupuesto.movimientos-partidas.show', compact('movimiento'));
     }
@@ -217,6 +225,8 @@ class MovimientoPartidaController extends Controller
      */
     public function anular(Request $request, MovimientoPartida $movimiento)
     {
+        $this->authorize('modificaciones.anular');
+
         if ($movimiento->estado === 'anulado') {
             return back()->with('error', 'Este movimiento ya está anulado.');
         }

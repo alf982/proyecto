@@ -466,7 +466,7 @@ setInterval(fetchStats, 8000);
             </a>
             @endcan
 
-            @can('nomina.nominas.crear')
+            @can('nomina.crear')
             <a href="{{ route('nomina.nominas.create') }}" style="text-decoration:none;">
                 <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .25s;" onmouseover="this.style.borderColor='rgba(99,179,237,0.35)';this.style.background='rgba(79,142,247,0.07)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)';this.style.background='rgba(255,255,255,0.03)'">
                     <i class="fa-solid fa-money-check-dollar" style="color:var(--accent);width:16px;"></i>

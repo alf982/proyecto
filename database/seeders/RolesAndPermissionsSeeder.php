@@ -58,6 +58,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'compras.ordenes.ver',      'compras.ordenes.crear',      'compras.ordenes.aprobar',
             'compras.recepciones.ver',  'compras.recepciones.crear',
 
+            // ── Almacén — Solicitudes de Despacho ────────────────────────
+            'almacen.solicitudes.ver',  'almacen.solicitudes.crear',  'almacen.solicitudes.aprobar',
+
             // ── Bienes Nacionales ────────────────────────────────────────
             'bienes.ver', 'bienes.crear', 'bienes.editar',
 
@@ -65,6 +68,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'nomina.ver',             'nomina.crear',           'nomina.aprobar',  'nomina.pagar',  'nomina.anular',
             'nomina.empleados.ver',   'nomina.empleados.crear', 'nomina.empleados.editar',
             'nomina.conceptos.ver',   'nomina.conceptos.crear', 'nomina.conceptos.editar',
+
+            // ── Retenciones Fiscales ─────────────────────────────────────
+            'retenciones.ver',          'retenciones.crear',          'retenciones.editar',
         ];
 
         foreach ($permisos as $permiso) {
@@ -97,7 +103,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'contabilidad.cuentas.ver', 'contabilidad.asientos.ver', 'contabilidad.reportes',
             'compras.almacenes.ver', 'compras.articulos.ver', 'compras.solicitudes.ver',
             'compras.ordenes.ver', 'compras.recepciones.ver',
+            'almacen.solicitudes.ver', 'almacen.solicitudes.crear', 'almacen.solicitudes.aprobar',
             'bienes.ver',
+            'retenciones.ver', 'retenciones.crear', 'retenciones.editar',
         ]);
 
         // ── Analista de Presupuesto ───────────────────────────────────
@@ -114,6 +122,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'pagos.ver', 'pagos.crear', 'pagos.procesar', 'pagos.anular',
             'modificaciones.ver', 'modificaciones.crear', 'modificaciones.aprobar', 'modificaciones.anular',
             'presupuesto.reportes',
+            'retenciones.ver',
         ]);
 
         // ── Tesorero ──────────────────────────────────────────────────
@@ -147,6 +156,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'compras.solicitudes.ver', 'compras.solicitudes.crear', 'compras.solicitudes.aprobar',
             'compras.ordenes.ver', 'compras.ordenes.crear', 'compras.ordenes.aprobar',
             'compras.recepciones.ver', 'compras.recepciones.crear',
+            'almacen.solicitudes.ver', 'almacen.solicitudes.crear', 'almacen.solicitudes.aprobar',
         ]);
 
         // ── Jefe de Bienes Nacionales ─────────────────────────────────
@@ -177,22 +187,37 @@ class RolesAndPermissionsSeeder extends Seeder
             'contabilidad.cuentas.ver', 'contabilidad.asientos.ver', 'contabilidad.reportes',
             'compras.almacenes.ver', 'compras.articulos.ver', 'compras.solicitudes.ver',
             'compras.ordenes.ver', 'compras.recepciones.ver',
+            'almacen.solicitudes.ver',
             'bienes.ver',
             'nomina.ver', 'nomina.empleados.ver',
+            'retenciones.ver',
         ]);
 
         // ── Usuario Super Admin por defecto ───────────────────────────
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@sia.gov.ve'],
-            [
+        // Buscar por email o por cédula para evitar constraint violations
+        $admin = User::where('email', 'admin@sia.gov.ve')
+                     ->orWhere('cedula', 'V-00000000')
+                     ->first();
+
+        if (!$admin) {
+            $admin = User::create([
                 'name'              => 'Administrador SIA',
+                'email'             => 'admin@sia.gov.ve',
                 'cedula'            => 'V-00000000',
                 'password'          => bcrypt('Admin@SIA2024'),
                 'activo'            => true,
                 'email_verified_at' => now(),
-            ]
-        );
-        $admin->assignRole('super-admin');
+            ]);
+        } else {
+            // Actualizar para asegurar datos correctos
+            $admin->update([
+                'name'              => 'Administrador SIA',
+                'email'             => 'admin@sia.gov.ve',
+                'activo'            => true,
+                'email_verified_at' => $admin->email_verified_at ?? now(),
+            ]);
+        }
+        $admin->syncRoles(['super-admin']);
 
         $this->command->info('✅ Roles, permisos y usuario admin creados/actualizados.');
         $this->command->info('   Roles: super-admin, administrador, analista-presupuesto,');

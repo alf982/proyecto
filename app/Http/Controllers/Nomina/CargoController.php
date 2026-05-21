@@ -21,7 +21,7 @@ class CargoController extends Controller implements HasMiddleware
         return [
             new Middleware('can:nomina.ver', only: ['index', 'show']),
             new Middleware('can:nomina.crear', only: ['create', 'store']),
-            new Middleware('can:nomina.editar', only: ['edit', 'update']),
+            new Middleware('can:nomina.empleados.editar', only: ['edit', 'update']),
         ];
     }
     

@@ -178,7 +178,7 @@ class PdfController extends Controller
     // ── COMPROMISO PRESUPUESTARIO ──────────────────────────────────────────
     public function compromiso(Compromiso $compromiso)
     {
-        $this->authorize('presupuesto.compromisos.ver');
+        $this->authorize('compromisos.ver');
         $compromiso->load(['ejercicioFiscal', 'unidadEjecutora', 'partida', 'proyecto', 'creadoPor', 'aprobadoPor', 'beneficiarioModel']);
 
         $pdf = Pdf::loadView('pdf.compromiso', compact('compromiso'))

@@ -36,7 +36,7 @@
                 <td><span class="badge badge-blue">{{ $c->empleados_count }}</span></td>
                 <td><span class="badge {{ $c->activo ? 'badge-active' : 'badge-danger' }}">{{ $c->activo ? 'Activo' : 'Inactivo' }}</span></td>
                 <td>
-                    @can('nomina.editar')
+                    @can('nomina.empleados.editar')
                     <a href="{{ route('nomina.cargos.edit', $c) }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i></a>
                     @endcan
                 </td>

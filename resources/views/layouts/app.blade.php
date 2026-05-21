@@ -1496,25 +1496,21 @@
 
 
                 {{-- ── Bienes Nacionales ── --}}
-                @canany(['bienes.ver', 'bienes.categorias.ver'])
+                @can('bienes.ver')
                     <div class="nav-label" style="margin-top:10px;">Bienes Nacionales</div>
-                    @can('bienes.categorias.ver')
-                        <a href="{{ route('bienes.categorias.index') }}"
-                            class="nav-item {{ request()->routeIs('bienes.categorias.*') ? 'active' : '' }}"
-                            id="nav-categorias-bien">
-                            <i class="fa-solid fa-tags"></i> Categorías de Bienes
-                        </a>
-                    @endcan
-                    @can('bienes.ver')
-                        <a href="{{ route('bienes.bienes.index') }}"
-                            class="nav-item {{ request()->routeIs('bienes.bienes.*') ? 'active' : '' }}" id="nav-bienes">
-                            <i class="fa-solid fa-computer"></i> Inventario de Bienes
-                        </a>
-                    @endcan
-                @endcanany
+                    <a href="{{ route('bienes.categorias.index') }}"
+                        class="nav-item {{ request()->routeIs('bienes.categorias.*') ? 'active' : '' }}"
+                        id="nav-categorias-bien">
+                        <i class="fa-solid fa-tags"></i> Categorías de Bienes
+                    </a>
+                    <a href="{{ route('bienes.bienes.index') }}"
+                        class="nav-item {{ request()->routeIs('bienes.bienes.*') ? 'active' : '' }}" id="nav-bienes">
+                        <i class="fa-solid fa-computer"></i> Inventario de Bienes
+                    </a>
+                @endcan
 
                 {{-- ── Nómina y Personal ── --}}
-                @canany(['nomina.empleados.ver', 'nomina.cargos.ver', 'nomina.conceptos.ver', 'nomina.nominas.ver'])
+                @canany(['nomina.empleados.ver', 'nomina.ver', 'nomina.conceptos.ver'])
                     <div class="nav-label" style="margin-top:10px;">Nómina y Personal</div>
                     @can('nomina.empleados.ver')
                         <a href="{{ route('nomina.empleados.index') }}"
@@ -1522,7 +1518,7 @@
                             <i class="fa-solid fa-id-card"></i> Empleados
                         </a>
                     @endcan
-                    @can('nomina.cargos.ver')
+                    @can('nomina.ver')
                         <a href="{{ route('nomina.cargos.index') }}"
                             class="nav-item {{ request()->routeIs('nomina.cargos.*') ? 'active' : '' }}" id="nav-cargos">
                             <i class="fa-solid fa-briefcase"></i> Cargos
@@ -1535,7 +1531,7 @@
                             <i class="fa-solid fa-sliders"></i> Conceptos de Nómina
                         </a>
                     @endcan
-                    @can('nomina.nominas.ver')
+                    @can('nomina.ver')
                         <div class="nav-divider"></div>
                         <a href="{{ route('nomina.nominas.index') }}"
                             class="nav-item {{ request()->routeIs('nomina.nominas.*') ? 'active' : '' }}" id="nav-nominas">
@@ -1675,7 +1671,7 @@
                 <span>Compras</span>
             </a>
         @endcanany
-        @canany(['nomina.nominas.ver', 'nomina.empleados.ver'])
+        @canany(['nomina.ver', 'nomina.empleados.ver'])
             <a href="{{ route('nomina.nominas.index') }}" class="{{ request()->is('nomina/*') ? 'active' : '' }}">
                 <i class="fa-solid fa-money-check-dollar"></i>
                 <span>Nómina</span>

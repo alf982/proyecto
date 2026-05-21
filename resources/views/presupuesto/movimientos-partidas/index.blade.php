@@ -18,7 +18,7 @@
         <h1 class="page-title">Movimientos de Partidas Presupuestarias</h1>
         <p class="page-subtitle">Registro de ingresos, egresos y modificaciones de fondos por partida</p>
     </div>
-    @can('movimientos.crear')
+    @can('modificaciones.crear')
     <a href="{{ route('presupuesto.movimientos-partidas.create') }}" class="btn btn-primary">
         <i class="fa-solid fa-plus"></i> Nuevo Movimiento
     </a>
@@ -146,7 +146,7 @@
                         </span>
                     </td>
                     <td style="text-align:right;">
-                        @can('movimientos.ver')
+                        @can('modificaciones.ver')
                         <a href="{{ route('presupuesto.movimientos-partidas.show', $mov) }}" class="btn btn-outline btn-sm">
                             <i class="fa-solid fa-eye"></i>
                         </a>

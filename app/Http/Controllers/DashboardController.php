@@ -14,6 +14,8 @@ use App\Models\PartidaPresupuestaria;
 use App\Models\ProyectoSia;
 use App\Models\User;
 use App\Services\CatalogoCache;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Clase DashboardController
@@ -22,8 +24,19 @@ use App\Services\CatalogoCache;
  * Se encarga de recopilar y enviar todas las métricas principales (KPIs) 
  * que se muestran en la pantalla de inicio del sistema.
  */
-class DashboardController extends Controller
+class DashboardController extends Controller implements HasMiddleware
 {
+    /**
+     * Requiere el permiso 'dashboard.ver' para acceder al dashboard.
+     * El super-admin lo tiene siempre por el Gate::before en AppServiceProvider.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:dashboard.ver'),
+        ];
+    }
+
     /**
      * Reúne los datos estadísticos y renderiza la vista del Dashboard.
      *

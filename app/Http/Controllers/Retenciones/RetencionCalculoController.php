@@ -5,9 +5,25 @@ namespace App\Http\Controllers\Retenciones;
 use App\Http\Controllers\Controller;
 use App\Models\Retencion;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class RetencionCalculoController extends Controller
+class RetencionCalculoController extends Controller implements HasMiddleware
 {
+    /**
+     * Sólo usuarios con permiso de crear causaciones o pagos pueden
+     * llamar al endpoint de cálculo de retenciones.
+     * Este endpoint es interno (AJAX), accedido desde formularios de causación y pago.
+     */
+    public static function middleware(): array
+    {
+        return [
+            // El operador | indica OR: basta con tener uno de los dos permisos.
+            // Usuarios que crean causaciones o pagos pueden calcular retenciones.
+            new Middleware('permission:causaciones.crear|pagos.crear'),
+        ];
+    }
+
     /**
      * Recibe un monto_base y una lista de retencion_ids.
      * Devuelve JSON con el desglose de cada retención y el total retenido.

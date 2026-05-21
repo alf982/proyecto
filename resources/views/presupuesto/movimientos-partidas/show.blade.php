@@ -168,6 +168,7 @@
                 </div>
 
                 @if($movimiento->estado !== 'anulado' && $movimiento->tipo !== 'modificacion_salida')
+                @can('modificaciones.anular')
                 <div class="nav-divider"></div>
                 <form method="POST" action="{{ route('presupuesto.movimientos-partidas.anular', $movimiento) }}"
                     onsubmit="return confirm('¿Confirmas anular este movimiento? Los saldos serán revertidos.')">
@@ -181,6 +182,7 @@
                         <i class="fa-solid fa-ban"></i> Anular Movimiento
                     </button>
                 </form>
+                @endcan
                 @endif
             </div>
         </div>
