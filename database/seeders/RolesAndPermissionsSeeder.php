@@ -193,36 +193,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'retenciones.ver',
         ]);
 
-        // ── Usuario Super Admin por defecto ───────────────────────────
-        // Buscar por email o por cédula para evitar constraint violations
-        $admin = User::where('email', 'admin@sia.gov.ve')
-                     ->orWhere('cedula', 'V-00000000')
-                     ->first();
-
-        if (!$admin) {
-            $admin = User::create([
-                'name'              => 'Administrador SIA',
-                'email'             => 'admin@sia.gov.ve',
-                'cedula'            => 'V-00000000',
-                'password'          => bcrypt('Admin@SIA2024'),
-                'activo'            => true,
-                'email_verified_at' => now(),
-            ]);
-        } else {
-            // Actualizar para asegurar datos correctos
-            $admin->update([
-                'name'              => 'Administrador SIA',
-                'email'             => 'admin@sia.gov.ve',
-                'activo'            => true,
-                'email_verified_at' => $admin->email_verified_at ?? now(),
-            ]);
-        }
-        $admin->syncRoles(['super-admin']);
-
-        $this->command->info('✅ Roles, permisos y usuario admin creados/actualizados.');
+        $this->command->info('✅ Roles y permisos creados/actualizados exitosamente.');
         $this->command->info('   Roles: super-admin, administrador, analista-presupuesto,');
         $this->command->info('          tesorero, analista-contable, jefe-compras, jefe-bienes,');
-        $this->command->info('          jefe-nomina, cajero, consultor');
-        $this->command->info('📧 Email: admin@sia.gov.ve  |  🔑 Password: Admin@SIA2024');
+        $this->command->info('          jefe-nomina, consultor');
     }
 }
